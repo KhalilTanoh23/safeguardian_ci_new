@@ -10,9 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'package:safeguardian_ci_new/core/services/bluetooth_service.dart';
-import 'package:safeguardian_ci_new/core/services/notification_service.dart';
-import 'package:safeguardian_ci_new/core/services/location_service.dart';
+// imports de services retirés (tests utilisent des mocks locaux)
 import 'package:safeguardian_ci_new/data/repositories/alert_repository.dart';
 import 'package:safeguardian_ci_new/presentation/bloc/auth_bloc/auth_bloc.dart';
 import 'package:safeguardian_ci_new/presentation/screens/auth/login_screen.dart';
@@ -60,8 +58,14 @@ void main() {
   setUpAll(() async {
     // Assurer l'initialisation du binding et mocker path_provider
     TestWidgetsFlutterBinding.ensureInitialized();
-    const channel = MethodChannel('plugins.flutter.io/path_provider');
-    channel.setMockMethodCallHandler((MethodCall methodCall) async {
+
+    // Utiliser l'API de test recommandée pour mocker les MethodChannel
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final pathChannel = const MethodChannel('plugins.flutter.io/path_provider');
+    messenger.setMockMethodCallHandler(pathChannel, (
+      MethodCall methodCall,
+    ) async {
       switch (methodCall.method) {
         case 'getApplicationDocumentsDirectory':
         case 'getTemporaryDirectory':
@@ -83,8 +87,10 @@ void main() {
   });
 
   tearDownAll(() async {
-    const channel = MethodChannel('plugins.flutter.io/path_provider');
-    channel.setMockMethodCallHandler(null);
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final pathChannel = const MethodChannel('plugins.flutter.io/path_provider');
+    messenger.setMockMethodCallHandler(pathChannel, null);
     // Nettoyer après les tests
     await Hive.close();
   });
