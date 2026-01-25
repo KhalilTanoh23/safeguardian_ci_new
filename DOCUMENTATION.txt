@@ -1,0 +1,246 @@
+# Documentation du Projet SafeGuardian CI
+
+## Vue d'ensemble
+SafeGuardian CI est une application Flutter développée pour la Côte d'Ivoire dans le cadre du projet SILENTOPS. L'application vise à prévenir et gérer les situations d'urgence, notamment les enlèvements, en permettant aux utilisateurs de configurer un réseau de contacts d'urgence qui seront automatiquement alertés en cas de déclenchement d'une alerte.
+
+## Architecture Générale
+
+### Structure du Projet
+```
+lib/
+├── core/                    # Noyau de l'application
+│   ├── constants/          # Constantes (routes, couleurs, etc.)
+│   └── services/           # Services métier (Bluetooth, notifications, etc.)
+├── data/                   # Couche de données
+│   ├── models/            # Modèles de données
+│   ├── repositories/      # Repositories pour l'accès aux données
+│   └── providers/         # Providers de données
+├── presentation/          # Couche de présentation
+│   ├── bloc/             # Gestion d'état avec BLoC
+│   ├── screens/          # Écrans de l'application
+│   ├── widgets/          # Composants réutilisables
+│   └── themes/           # Thèmes et styles
+├── firebase_options.dart  # Configuration Firebase
+└── main.dart             # Point d'entrée
+```
+
+### Technologies Utilisées
+- **Flutter** : Framework UI cross-platform
+- **Firebase** : Authentification, base de données, notifications push
+- **Hive** : Base de données locale NoSQL
+- **Bloc** : Gestion d'état réactive
+- **Provider** : Gestion d'état simple
+- **Bluetooth** : Communication avec dispositifs IoT
+- **Google Maps** : Géolocalisation et cartes
+
+## Fonctionnalités Principales
+
+### 1. Authentification
+- Connexion/Inscription avec email/mot de passe
+- Intégration Firebase Auth
+- Gestion des états d'authentification via AuthBloc
+
+### 2. Réseau de Contacts d'Urgence
+- Ajout de contacts avec relations hiérarchisées
+- Priorités d'alerte (1-7 selon SILENTOPS)
+- Vérification des contacts
+- Partage de localisation en temps réel
+
+### 3. Gestion des Alertes
+- Déclenchement manuel d'alerte d'urgence
+- Notifications push vers tous les contacts
+- Géolocalisation automatique
+- Suivi des réponses des contacts
+
+### 4. Appareils IoT
+- Connexion Bluetooth avec bracelets/bagues de sécurité
+- Détection automatique d'urgence
+- Synchronisation des données
+
+### 5. Objets et Documents
+- Gestion d'inventaire des objets personnels
+- Système de documents sécurisés
+- Fonctionnalités perdu/trouvé
+
+## Flux d'Exécution
+
+### Démarrage de l'Application
+1. **main.dart** : Initialisation de Flutter, Firebase, Hive
+2. **AuthWrapper** : Vérification de l'état d'authentification
+3. **SplashScreen** : Écran de chargement
+4. **Login/Register** : Authentification si nécessaire
+5. **Dashboard** : Interface principale
+
+### Gestion des États
+- **AuthBloc** : Gère l'authentification (login, logout, vérification)
+- **Providers** : Services Bluetooth, notifications, localisation
+- **Streams** : Mise à jour en temps réel des données
+
+### Navigation
+- **AppRoutes** : Routes centralisées
+- Navigation basée sur l'état d'authentification
+- Transitions fluides entre écrans
+
+## Écrans Principaux
+
+### Authentification
+- **LoginScreen** : Connexion avec email/mot de passe
+- **RegisterScreen** : Inscription utilisateur
+- **SplashScreen** : Écran de chargement
+
+### Interface Principale
+- **DashboardScreen** : Vue d'ensemble avec raccourcis
+- **EmergencyScreen** : Déclenchement d'alerte
+- **ContactsScreen** : Gestion des contacts d'urgence
+- **ItemsScreen** : Gestion des objets
+- **DocumentsScreen** : Gestion des documents
+
+### Fonctionnalités Spécialisées
+- **AlertMapScreen** : Carte des alertes
+- **AlertHistoryScreen** : Historique des alertes
+- **DeviceSettingsScreen** : Configuration des appareils
+- **SettingsScreen** : Paramètres généraux
+
+## Modèles de Données
+
+### EmergencyContact
+```dart
+class EmergencyContact {
+  final String id;
+  final String userId;
+  final String name;
+  final String relationship;
+  final String phone;
+  final String email;
+  final int priority; // 1-7 selon SILENTOPS
+  final bool isVerified;
+  final bool canSeeLiveLocation;
+  final DateTime? lastAlert;
+  final String responseTime;
+  final DateTime addedDate;
+}
+```
+
+### Alert Models
+- **EmergencyAlert** : Alerte d'urgence avec localisation
+- **AlertPriority** : Niveaux de priorité d'alerte
+- **EmergencyRelationship** : Types de relations
+
+### Device Models
+- **BluetoothDevice** : Appareils connectés
+- **DeviceSettings** : Configuration des appareils
+
+## Services
+
+### BluetoothService
+- Scan et connexion aux appareils IoT
+- Gestion des connexions persistantes
+- Synchronisation des données
+
+### NotificationService
+- Notifications push via Firebase
+- Notifications locales
+- Gestion des permissions
+
+### LocationService
+- Géolocalisation en temps réel
+- Permissions de localisation
+- Suivi GPS
+
+### AlertRepository
+- Stockage des alertes dans Hive
+- Synchronisation avec Firebase
+- Gestion des historiques
+
+## Algorithmes et Logique Métier
+
+### Système de Priorité SILENTOPS
+1. **Priorité 1** : Parents/Tuteurs (15 secondes)
+2. **Priorité 2** : Conjoint/Partenaire (30 secondes)
+3. **Priorité 3** : Ami proche (1 minute)
+4. **Priorité 4** : Collègue (délai configurable)
+5. **Priorité 5** : Autorités (Police)
+6. **Priorité 6** : Médecins/Santé
+7. **Priorité 7** : Autres
+
+### Déclenchement d'Alerte
+1. Détection d'urgence (manuel ou automatique)
+2. Géolocalisation immédiate
+3. Notification séquentielle selon priorité
+4. Suivi des réponses
+5. Escalade si pas de réponse
+
+### Vérification des Contacts
+- Code de vérification SMS
+- Validation des numéros
+- Confirmation manuelle
+
+## Sécurité et Confidentialité
+
+### Chiffrement
+- Données sensibles chiffrées
+- Clés de chiffrement sécurisées
+- Stockage local sécurisé
+
+### Permissions
+- Localisation : Pour géolocalisation d'urgence
+- Notifications : Pour alertes push
+- Bluetooth : Pour connexion appareils
+- Contacts : Pour import rapide
+
+### Conformité
+- RGPD compliant
+- Données anonymisées
+- Consentement utilisateur
+
+## Déploiement et Maintenance
+
+### Build
+- **Web** : `flutter build web`
+- **Android** : `flutter build apk`
+- **iOS** : `flutter build ios`
+
+### Environnements
+- **Development** : Firebase dev project
+- **Production** : Firebase prod project
+- **Testing** : Environnements isolés
+
+### Monitoring
+- Crashlytics pour les erreurs
+- Analytics pour l'usage
+- Performance monitoring
+
+## Points d'Amélioration Futurs
+
+### Fonctionnalités
+- IA pour détection d'urgence
+- Chat intégré avec contacts
+- Intégration réseaux sociaux
+- Mode hors ligne étendu
+
+### Performance
+- Optimisation des images
+- Lazy loading des listes
+- Cache intelligent
+
+### Sécurité
+- Authentification biométrique
+- Chiffrement end-to-end
+- Audit logs
+
+## Équipe et Maintenance
+
+### SILENTOPS Team
+- Développement : Équipe MIAGE
+- Design : UX/UI spécialisés sécurité
+- Testing : QA dédié
+- DevOps : Infrastructure sécurisée
+
+### Support
+- Documentation technique
+- Guides utilisateur
+- Support 24/7 pour urgences
+
+---
+
+*Cette documentation est générée automatiquement et peut être mise à jour selon les évolutions du projet.*

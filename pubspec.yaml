@@ -1,0 +1,63 @@
+name: safeguardian_ci_new
+description: "Nouveau projet Flutter migré."
+publish_to: 'none' # Projet privé, pas de publication sur pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management / DI
+  provider: ^6.1.2
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.7
+
+  # Firebase
+  firebase_core: ^4.3.0
+  firebase_auth: ^6.1.3
+  cloud_firestore: ^6.1.1
+  firebase_messaging: ^16.1.0
+  firebase_storage: ^13.0.5
+
+  # Hive pour le stockage local
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Bluetooth, storage, maps, i18n
+  flutter_blue_plus: ^2.1.0
+  shared_preferences: ^2.3.2
+  google_maps_flutter: ^2.9.0
+  intl: ^0.20.2
+
+  # Notifications
+  flutter_local_notifications: ^19.5.0
+
+  # Utilitaires
+  geolocator: ^14.0.2
+  geocoding: ^4.0.0
+  permission_handler: ^12.0.1
+  url_launcher: ^6.3.1
+  http: ^1.2.2
+  path_provider: ^2.1.4
+  mobile_scanner: ^7.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Pour générer les adapters Hive
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
+  assets:
+    - lib/assets/images/
+    - lib/assets/icons/
+    - lib/assets/fonts/

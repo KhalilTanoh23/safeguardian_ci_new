@@ -1,0 +1,1604 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'add_contact_screen.dart';
+import '../../../data/models/emergency_contact.dart';
+
+/// 🛡️ SafeGuardian CI - Gestion des Contacts d'Urgence
+/// Projet SILENTOPS - Équipe MIAGE
+/// Plateforme citoyenne de sécurité avec bracelet/bague IoT
+
+class EmergencyContactsScreen extends StatefulWidget {
+  const EmergencyContactsScreen({super.key});
+
+  @override
+  State<EmergencyContactsScreen> createState() =>
+      _EmergencyContactsScreenState();
+}
+
+class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
+    with SingleTickerProviderStateMixin {
+  String _searchQuery = '';
+  EmergencyContact? _selectedContact;
+  late AnimationController _animController;
+
+  // 📋 Contacts d'urgence SafeGuardian (contexte ivoirien)
+  final List<EmergencyContact> _contacts = [
+    EmergencyContact(
+      id: '1',
+      userId: 'user1',
+      name: 'Marie Kouassi',
+      relationship: 'Mère',
+      phone: '+225 07 08 09 10 11',
+      email: 'marie.k@safeguardian.ci',
+      priority: 1,
+      color: const Color(0xFFEF4444),
+      isVerified: true,
+      canSeeLiveLocation: true,
+      lastAlert: DateTime(2024, 12, 20, 14, 30),
+      responseTime: '12s',
+      addedDate: DateTime.now(),
+    ),
+    EmergencyContact(
+      id: '2',
+      userId: 'user1',
+      name: 'Jean-Paul Diabaté',
+      relationship: 'Père',
+      phone: '+225 07 12 13 14 15',
+      email: 'jp.diabate@safeguardian.ci',
+      priority: 2,
+      color: const Color(0xFFF97316),
+      isVerified: true,
+      canSeeLiveLocation: true,
+      lastAlert: DateTime(2024, 12, 18, 9, 15),
+      responseTime: '25s',
+      addedDate: DateTime.now(),
+    ),
+    EmergencyContact(
+      id: '3',
+      userId: 'user1',
+      name: 'Sophie N\'Guessan',
+      relationship: 'Meilleur ami',
+      phone: '+225 07 20 21 22 23',
+      email: 'sophie.n@safeguardian.ci',
+      priority: 3,
+      color: const Color(0xFF3B82F6),
+      isVerified: true,
+      canSeeLiveLocation: false,
+      lastAlert: DateTime(2024, 12, 15, 16, 45),
+      responseTime: '1m 15s',
+      addedDate: DateTime.now(),
+    ),
+    EmergencyContact(
+      id: '4',
+      userId: 'user1',
+      name: 'Police Centrale',
+      relationship: 'Police (111)',
+      phone: '111',
+      email: 'urgence@police.gov.ci',
+      priority: 4,
+      color: const Color(0xFF1E293B),
+      isVerified: true,
+      canSeeLiveLocation: true,
+      lastAlert: null,
+      responseTime: 'Immédiat',
+      addedDate: DateTime.now(),
+    ),
+    EmergencyContact(
+      id: '5',
+      userId: 'user1',
+      name: 'SAMU Abidjan',
+      relationship: 'SAMU (185)',
+      phone: '185',
+      email: 'samu@sante.gov.ci',
+      priority: 5,
+      color: const Color(0xFF10B981),
+      isVerified: true,
+      canSeeLiveLocation: true,
+      lastAlert: null,
+      responseTime: 'Immédiat',
+      addedDate: DateTime.now(),
+    ),
+    EmergencyContact(
+      id: '6',
+      userId: 'user1',
+      name: 'Fatou Touré',
+      relationship: 'Voisin',
+      phone: '+225 07 30 31 32 33',
+      email: 'fatou.t@safeguardian.ci',
+      priority: 6,
+      color: const Color(0xFF8B5CF6),
+      isVerified: false,
+      canSeeLiveLocation: false,
+      lastAlert: null,
+      responseTime: 'En attente',
+      addedDate: DateTime.now(),
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _searchQuery.isEmpty
+        ? _contacts
+        : _contacts
+              .where(
+                (c) =>
+                    c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                    c.phone.contains(_searchQuery) ||
+                    c.relationship.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ),
+              )
+              .toList();
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0A0E27), Color(0xFF1E1B4B), Color(0xFF0F172A)],
+          ),
+        ),
+        child: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildAppBar(),
+              if (_selectedContact != null) _buildSelectedCard(),
+              SliverToBoxAdapter(child: _buildStats()),
+              SliverToBoxAdapter(child: _buildSearchBar()),
+              SliverToBoxAdapter(child: _buildEscaladeBanner()),
+              if (filtered.isEmpty)
+                SliverFillRemaining(child: _buildEmpty())
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (c, i) => _buildContactCard(filtered[i], i),
+                      childCount: filtered.length,
+                    ),
+                  ),
+                ),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: _selectedContact != null ? _buildBottomBar() : null,
+    );
+  }
+
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 200,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+        title: const Text(
+          'Réseau SafeGuardian',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 24,
+            color: Colors.white,
+            shadows: [Shadow(color: Colors.black45, blurRadius: 10)],
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF6366F1).withOpacity(0.3),
+                const Color(0xFF8B5CF6).withOpacity(0.2),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -40,
+                top: 20,
+                child: Icon(
+                  Icons.security_rounded,
+                  size: 180,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                bottom: 70,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF6366F1).withOpacity(0.5),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.shield_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'SafeGuardian CI',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Alertés lors d\'une urgence bracelet/bague',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                        shadows: const [
+                          Shadow(color: Colors.black45, blurRadius: 5),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+          tooltip: 'Ajouter un contact',
+          onPressed: _addContact,
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings_rounded, color: Colors.white),
+          onPressed: _showSettings,
+        ),
+        IconButton(
+          icon: const Icon(Icons.help_outline_rounded, color: Colors.white),
+          onPressed: _showHelp,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedCard() {
+    if (_selectedContact == null) return const SliverToBoxAdapter();
+
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              _selectedContact!.color.withOpacity(0.3),
+              _selectedContact!.color.withOpacity(0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _selectedContact!.color.withOpacity(0.5),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _selectedContact!.color.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _selectedContact!.color.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _selectedContact!.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _selectedContact!.relationship,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: () => setState(() => _selectedContact = null),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _actionBtn(
+                  Icons.call_rounded,
+                  'Appeler',
+                  () => _call(_selectedContact!),
+                ),
+                _actionBtn(
+                  Icons.message_rounded,
+                  'SMS',
+                  () => _message(_selectedContact!),
+                ),
+                _actionBtn(
+                  Icons.edit_rounded,
+                  'Modifier',
+                  () => _edit(_selectedContact!),
+                ),
+                _actionBtn(
+                  Icons.delete_rounded,
+                  'Supprimer',
+                  () => _delete(_selectedContact!),
+                  destructive: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionBtn(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool destructive = false,
+  }) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: destructive
+                ? Colors.red.withOpacity(0.2)
+                : Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: Icon(
+              icon,
+              color: destructive ? Colors.red : Colors.white,
+              size: 22,
+            ),
+            onPressed: onTap,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: destructive ? Colors.red : Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStats() {
+    final verified = _contacts.where((c) => c.isVerified).length;
+    final avgResponse = _calcAvg();
+    final withGPS = _contacts.where((c) => c.canSeeLiveLocation).length;
+
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _stat(
+            _contacts.length.toString(),
+            'Contacts',
+            Icons.people_rounded,
+            const Color(0xFF3B82F6),
+          ),
+          _stat(
+            verified.toString(),
+            'Vérifiés',
+            Icons.verified_rounded,
+            const Color(0xFF10B981),
+          ),
+          _stat(
+            avgResponse,
+            'Temps moy',
+            Icons.access_time_rounded,
+            const Color(0xFFF97316),
+          ),
+          _stat(
+            withGPS.toString(),
+            'GPS',
+            Icons.location_on_rounded,
+            const Color(0xFF8B5CF6),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String val, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          val,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: TextField(
+        onChanged: (v) => setState(() => _searchQuery = v),
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: 'Rechercher un contact...',
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: Colors.white.withOpacity(0.5),
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, color: Colors.white),
+                  onPressed: () => setState(() => _searchQuery = ''),
+                )
+              : null,
+          filled: true,
+          fillColor: const Color(0xFF1E293B).withOpacity(0.5),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEscaladeBanner() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF3B82F6).withOpacity(0.2),
+            const Color(0xFF8B5CF6).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.info_rounded,
+              color: Color(0xFF3B82F6),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Système d\'escalade automatique',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Alerte communautaire après 2 min sans réponse (rayon 1km)',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard(EmergencyContact contact, int index) {
+    return TweenAnimationBuilder(
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      tween: Tween<double>(begin: 0, end: 1),
+      curve: Curves.easeOutCubic,
+      builder: (context, double value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedContact = contact),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B).withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _selectedContact?.id == contact.id
+                  ? contact.color.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.1),
+              width: _selectedContact?.id == contact.id ? 2 : 1,
+            ),
+            boxShadow: _selectedContact?.id == contact.id
+                ? [
+                    BoxShadow(
+                      color: contact.color.withOpacity(0.2),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          contact.color.withOpacity(0.3),
+                          contact.color.withOpacity(0.1),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        contact.priority.toString(),
+                        style: TextStyle(
+                          color: contact.color,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!contact.isVerified)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF97316),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.priority_high_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            contact.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        if (contact.canSeeLiveLocation)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_rounded,
+                                  color: Color(0xFF3B82F6),
+                                  size: 12,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'GPS',
+                                  style: TextStyle(
+                                    color: Color(0xFF3B82F6),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      contact.relationship,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _chip(
+                          Icons.phone_rounded,
+                          contact.phone,
+                          const Color(0xFF10B981),
+                        ),
+                        if (contact.lastAlert != null) ...[
+                          const SizedBox(width: 8),
+                          _chip(
+                            Icons.access_time_rounded,
+                            contact.responseTime,
+                            const Color(0xFFF97316),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: contact.color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Niv ${contact.priority}',
+                  style: TextStyle(
+                    color: contact.color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.people_outline_rounded,
+            size: 120,
+            color: Colors.white.withOpacity(0.1),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Aucun contact SafeGuardian',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Ajoutez des contacts pour activer\nvotre réseau de sécurité',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.person_add_rounded, size: 24),
+            label: const Text(
+              'Ajouter un contact',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+            onPressed: _addContact,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withOpacity(0.95),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.swap_vert_rounded, size: 20),
+              label: const Text('Changer priorité'),
+              onPressed: _changePriority,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF334155),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.notifications_active_rounded, size: 20),
+              label: const Text('Test alerte'),
+              onPressed: _testAlert,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF97316),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _calcAvg() {
+    final withResponse = _contacts
+        .where(
+          (c) =>
+              c.lastAlert != null &&
+              c.responseTime != 'N/A' &&
+              c.responseTime != 'Immédiat',
+        )
+        .toList();
+    if (withResponse.isEmpty) return '--';
+
+    int total = 0;
+    for (final c in withResponse) {
+      if (c.responseTime.contains('s') && !c.responseTime.contains('m')) {
+        total += int.parse(c.responseTime.replaceAll('s', ''));
+      } else if (c.responseTime.contains('m')) {
+        final parts = c.responseTime.split(' ');
+        if (parts.length == 2) {
+          total +=
+              int.parse(parts[0].replaceAll('m', '')) * 60 +
+              int.parse(parts[1].replaceAll('s', ''));
+        }
+      }
+    }
+    final avg = total ~/ withResponse.length;
+    return avg < 60 ? '${avg}s' : '${avg ~/ 60}m';
+  }
+
+  void _showSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (c) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Paramètres',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _settingsTile(
+              Icons.notifications_rounded,
+              'Notifications d\'urgence',
+              'Activer les alertes push',
+              true,
+            ),
+            _settingsTile(
+              Icons.share_location_rounded,
+              'Partage de localisation',
+              'GPS activé pendant les alertes',
+              true,
+            ),
+            _settingsTile(
+              Icons.backup_rounded,
+              'Sauvegarde automatique',
+              'Synchronisation des contacts',
+              true,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.shield_rounded),
+                label: const Text('Paramètres de sécurité'),
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _settingsTile(
+    IconData icon,
+    String title,
+    String subtitle,
+    bool value,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF334155).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFF6366F1), size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: (_) {},
+            activeColor: const Color(0xFF6366F1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelp() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.help_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'SafeGuardian CI',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '🔐 Système d\'alerte intelligent',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _helpItem('1', 'Urgence détectée par bracelet/bague IoT'),
+              _helpItem('2', 'Contacts alertés par ordre de priorité'),
+              _helpItem('3', 'SMS + Push + Localisation GPS partagée'),
+              _helpItem('4', 'Escalade automatique après 2 minutes'),
+              _helpItem('5', 'Alerte communautaire (rayon 1km)'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF97316).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFF97316).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.tips_and_updates_rounded,
+                      color: Color(0xFFF97316),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Conseil : Testez régulièrement le système avec vos contacts',
+                        style: TextStyle(
+                          color: const Color(0xFFF97316),
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text(
+              'Compris',
+              style: TextStyle(
+                color: Color(0xFF6366F1),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _helpItem(String num, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                num,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addContact() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (c) => const AddEmergencyContactScreen()),
+    );
+
+    if (result != null && result is EmergencyContact) {
+      setState(() => _contacts.add(result));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 12),
+              Text('${result.name} ajouté au réseau'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _call(EmergencyContact c) async {
+    final uri = Uri(scheme: 'tel', path: c.phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      _showError('Impossible de passer l\'appel');
+    }
+  }
+
+  void _message(EmergencyContact c) async {
+    final uri = Uri(scheme: 'sms', path: c.phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      _showError('Impossible d\'ouvrir les SMS');
+    }
+  }
+
+  void _edit(EmergencyContact c) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AddEmergencyContactScreen(contact: c),
+      ),
+    );
+
+    if (result != null && result is EmergencyContact) {
+      setState(() {
+        final idx = _contacts.indexWhere((x) => x.id == c.id);
+        if (idx != -1) {
+          _contacts[idx] = result;
+          _selectedContact = result;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${result.name} modifié'),
+          backgroundColor: const Color(0xFF3B82F6),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _delete(EmergencyContact c) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_rounded,
+                color: Colors.red,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Supprimer',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir retirer ${c.name} de votre réseau SafeGuardian ?',
+          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _contacts.remove(c);
+                _selectedContact = null;
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${c.name} supprimé'),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changePriority() {
+    if (_selectedContact == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (c) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Changer la priorité',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...List.generate(6, (i) {
+              final level = i + 1;
+              final selected = _selectedContact!.priority == level;
+              final colors = [
+                const Color(0xFFEF4444),
+                const Color(0xFFF97316),
+                const Color(0xFF3B82F6),
+                const Color(0xFF10B981),
+                const Color(0xFF8B5CF6),
+                const Color(0xFF64748B),
+              ];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  onTap: () {
+                    setState(() {
+                      final idx = _contacts.indexWhere(
+                        (x) => x.id == _selectedContact!.id,
+                      );
+                      if (idx != -1) {
+                        _contacts[idx] = _selectedContact!.copyWith(
+                          priority: level,
+                        );
+                        _selectedContact = _contacts[idx];
+                      }
+                    });
+                    Navigator.pop(c);
+                  },
+                  leading: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: colors[i].withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        level.toString(),
+                        style: TextStyle(
+                          color: colors[i],
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    'Niveau $level',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  trailing: selected
+                      ? const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF10B981),
+                        )
+                      : null,
+                  tileColor: selected ? colors[i].withOpacity(0.1) : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _testAlert() {
+    if (_selectedContact == null) return;
+
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF97316).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFF97316),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Test d\'alerte',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette action enverra une alerte de test à ${_selectedContact!.name}.',
+              style: TextStyle(color: Colors.white.withOpacity(0.8)),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF3B82F6).withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_rounded,
+                    color: Color(0xFF3B82F6),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Le contact recevra un SMS indiquant qu\'il s\'agit d\'un test',
+                      style: TextStyle(
+                        color: const Color(0xFF3B82F6),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(c);
+              final uri = Uri(
+                scheme: 'sms',
+                path: _selectedContact!.phone,
+                queryParameters: {
+                  'body':
+                      '🔔 TEST SAFEGUARDIAN CI\n\nCeci est un test d\'alerte. Le système fonctionne correctement. Aucune action requise.\n\n- Projet SILENTOPS',
+                },
+              );
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Test envoyé à ${_selectedContact!.name}'),
+                    backgroundColor: const Color(0xFFF97316),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              } else {
+                _showError('Impossible d\'envoyer le SMS');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF97316),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Envoyer le test'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+}
