@@ -1,8 +1,9 @@
 [build]
-dockerfile = "backend/Dockerfile"
-context = "."
+# Utiliser le Procfile pour lancer le service
+builder = "nixpacks"
 
 [deploy]
-startCommand = "php -S 0.0.0.0:8000"
+startCommand = "cd backend && php -S 0.0.0.0:8000"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
+
