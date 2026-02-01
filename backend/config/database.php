@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ════════════════════════════════════════════════════════════════════════════
  * Classe Database - Gestion de la connexion à la base de données
@@ -12,7 +13,8 @@
 // Gère la connexion PDO à la base de données MySQL
 // ═════════════════════════════════════════════════════════════════════════════
 
-class Database {
+class Database
+{
     /**
      * ────────────────────────────────────────────────────────────────────────
      * PROPRIÉTÉ STATIQUE: $instance
@@ -20,7 +22,7 @@ class Database {
      * ────────────────────────────────────────────────────────────────────────
      */
     private static $instance = null;
-    
+
     /**
      * ────────────────────────────────────────────────────────────────────────
      * PROPRIÉTÉ: $pdo
@@ -36,38 +38,68 @@ class Database {
      * Privé pour forcer l'utilisation du pattern Singleton
      * ────────────────────────────────────────────────────────────────────────
      */
-    private function __construct() {
-        // ───── Configuration de connexion
-        
-        // Serveur MySQL (localhost = machine locale)
-        $host = 'localhost';
-        
-        // Nom de la base de données à utiliser
-        $db = 'safeguardian_ci';
-        
-        // Utilisateur MySQL (root = administrateur)
-        $user = 'root';
-        
-        // Mot de passe (vide par défaut en développement)
-        $pass = '';
-        
-        // Jeu de caractères (utf8mb4 = UTF-8 avec support des emojis)
+    private function __construct()
+    {
+        // ───── Charger les variables d'environnement
+        require_once __DIR__ . '/env.php';
+
+        // ───── Configuration de connexion depuis le fichier .env
         $charset = 'utf8mb4';
 
-        // ───── Construire la chaîne de connexion DSN (Data Source Name)
-        // Format: mysql:host=serveur;dbname=base_de_donnees;charset=encodage
-        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-        
+        // Valeurs par défaut (MySQL)
+        $host = Config::get('DB_HOST', 'localhost');
+        $port = Config::get('DB_PORT', '3306');
+        $db = Config::get('DB_NAME', 'safeguardian_ci');
+        $user = Config::get('DB_USER', 'safeguardian_user');
+        $pass = Config::get('DB_PASS', '');
+
+        // Support d'une URL de connexion unique (ex: fournie par Supabase, Railway)
+        $databaseUrl = Config::get('DATABASE_URL', null);
+        $driver = Config::get('DB_DRIVER', 'mysql');
+
+        if ($databaseUrl) {
+            // parse_url gère les schémas postgres://user:pass@host:port/dbname
+            $parts = parse_url($databaseUrl);
+            $scheme = isset($parts['scheme']) ? $parts['scheme'] : null;
+
+            if (in_array($scheme, ['postgres', 'postgresql', 'pgsql'])) {
+                $driver = 'pgsql';
+                $host = $parts['host'] ?? $host;
+                $port = $parts['port'] ?? '5432';
+                $db = isset($parts['path']) ? ltrim($parts['path'], '/') : $db;
+                $user = $parts['user'] ?? $user;
+                $pass = $parts['pass'] ?? $pass;
+                $dsn = "pgsql:host={$host};port={$port};dbname={$db}";
+            } else {
+                // supposer mysql si le scheme n'est pas postgres
+                $host = $parts['host'] ?? $host;
+                $port = $parts['port'] ?? $port;
+                $db = isset($parts['path']) ? ltrim($parts['path'], '/') : $db;
+                $user = $parts['user'] ?? $user;
+                $pass = $parts['pass'] ?? $pass;
+                $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";
+            }
+        } else {
+            // Pas d'URL unique: choisir le DSN selon DB_DRIVER
+            if ($driver === 'pgsql') {
+                $port = Config::get('DB_PORT', '5432');
+                $dsn = "pgsql:host={$host};port={$port};dbname={$db}";
+            } else {
+                $port = Config::get('DB_PORT', '3306');
+                $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";
+            }
+        }
+
         // ───── Options de configuration PDO
         $options = [
             // ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION: Lancer des exceptions en cas d'erreur
             // Cela facilite la détection et le gestion des erreurs
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            
+
             // ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC: Récupérer les résultats sous forme de tableaux associatifs
             // Cela permet d'accéder aux colonnes par nom plutôt que par index
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            
+
             // ATTR_EMULATE_PREPARES => false: Désactiver la préparation émulée par PDO
             // Utiliser la préparation native du serveur pour une meilleure sécurité (protection SQL injection)
             PDO::ATTR_EMULATE_PREPARES   => false,
@@ -90,7 +122,8 @@ class Database {
      * @return Database L'instance unique de la classe Database
      * ────────────────────────────────────────────────────────────────────────
      */
-    public static function getInstance() {
+    public static function getInstance()
+    {
         // Vérifier si aucune instance n'a encore été créée
         if (self::$instance == null) {
             // Créer la première instance (et la seule)
@@ -107,7 +140,8 @@ class Database {
      * @return PDO L'objet de connexion PDO
      * ────────────────────────────────────────────────────────────────────────
      */
-    public function getConnection() {
+    public function getConnection()
+    {
         // Retourner l'objet PDO qui représente la connexion active
         return $this->pdo;
     }

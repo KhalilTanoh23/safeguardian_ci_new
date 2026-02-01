@@ -1,0 +1,8 @@
+[build]
+dockerfile = "backend/Dockerfile"
+context = "."
+
+[deploy]
+startCommand = "php -S 0.0.0.0:8000"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
