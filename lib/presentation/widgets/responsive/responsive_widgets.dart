@@ -7,11 +7,11 @@ class ResponsiveLayout extends StatelessWidget {
   final Widget? desktop;
 
   const ResponsiveLayout({
-    Key? key,
+    super.key,
     required this.mobile,
     this.tablet,
     this.desktop,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,12 +35,12 @@ class ResponsiveContainer extends StatelessWidget {
   final Alignment alignment;
 
   const ResponsiveContainer({
-    Key? key,
+    super.key,
     required this.child,
     this.maxWidth,
     this.padding,
     this.alignment = Alignment.center,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +69,7 @@ class ResponsiveGridView extends StatelessWidget {
   final bool shrinkWrap;
 
   const ResponsiveGridView({
-    Key? key,
+    super.key,
     required this.children,
     required this.crossAxisCount,
     this.mainAxisSpacing = 16,
@@ -77,7 +77,7 @@ class ResponsiveGridView extends StatelessWidget {
     this.childAspectRatio = 1.0,
     this.physics,
     this.shrinkWrap = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -99,10 +99,10 @@ class ResponsivePadding extends StatelessWidget {
   final EdgeInsets Function(BuildContext) padding;
 
   const ResponsivePadding({
-    Key? key,
+    super.key,
     required this.child,
     required this.padding,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -121,13 +121,13 @@ class ResponsiveText extends StatelessWidget {
 
   const ResponsiveText(
     this.text, {
-    Key? key,
+    super.key,
     this.baseStyle,
     this.textAlign,
     this.maxLines,
     this.overflow,
     this.sizeCalculator,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -170,13 +170,13 @@ class ResponsiveImage extends StatelessWidget {
 
   const ResponsiveImage(
     this.image, {
-    Key? key,
+    super.key,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
     this.widthCalculator,
     this.heightCalculator,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,13 +204,13 @@ class ResponsiveSizedBox extends StatelessWidget {
   final double Function(BuildContext)? heightCalculator;
 
   const ResponsiveSizedBox({
-    Key? key,
+    super.key,
     this.width,
     this.height,
     this.child,
     this.widthCalculator,
     this.heightCalculator,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

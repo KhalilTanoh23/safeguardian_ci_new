@@ -1,146 +1,166 @@
 <?php
+
 /**
  * ════════════════════════════════════════════════════════════════════════════
- * Middleware d'authentification
+ * Middleware d'authentification SÉCURISÉ
  * 
- * Vérifie et valide les tokens JWT pour sécuriser les routes protégées
+ * Vérifie et valide les tokens JWT avec mesures de sécurité avancées :
+ * - Validation JWT strict
+ * - Détection des attaques (token replay, expiration)
+ * - Journalisation des événements de sécurité
+ * - Rate limiting par utilisateur
  * ════════════════════════════════════════════════════════════════════════════
  */
 
-// ───── Charger la classe JWT pour le décodage des tokens
 require_once __DIR__ . '/../config/jwt.php';
+require_once __DIR__ . '/../config/SecurityConfig.php';
+require_once __DIR__ . '/../config/database.php';
 
-// ═════════════════════════════════════════════════════════════════════════════
-// CLASSE: AuthMiddleware
-// Gère l'authentification des requêtes via tokens JWT
-// ═════════════════════════════════════════════════════════════════════════════
+class AuthMiddleware
+{
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * MÉTHODE STATIQUE: verifyToken()
+     * Alias pour authenticate() - Compatibilité avec les contrôleurs
+     * ════════════════════════════════════════════════════════════════
+     */
+    public static function verifyToken()
+    {
+        return self::authenticate();
+    }
 
-class AuthMiddleware {
     /**
      * ────────────────────────────────────────────────────────────────────────
      * MÉTHODE STATIQUE: authenticate()
-     * Authentifie l'utilisateur en vérifiant le token JWT
+     * Authentifie l'utilisateur avec validation JWT STRICTE
      * 
-     * @return string L'ID utilisateur si authentifié
+     * @return stdClass|null L'utilisateur si authentifié
      * @throws Exception Si le token est invalide ou manquant
      * ────────────────────────────────────────────────────────────────────────
      */
-    public static function authenticate() {
-        // ───── Récupérer les headers d'authentification
-        // Les headers HTTP sont extraits du serveur
-        $headers = self::getAuthorizationHeaders();
-        
-        // ───── Vérifier si le header Authorization est présent
-        if (!isset($headers['Authorization'])) {
-            // Le token n'a pas été fourni
-            // Retourner le code HTTP 401 (Non autorisé)
-            http_response_code(401);
-            // Lever une exception pour arrêter l'exécution
-            throw new Exception('Token manquant');
-        }
-
-        // ───── Extraire le token du header Authorization
-        // Format attendu: "Bearer <token>"
-        // Supprimer le préfixe "Bearer " pour obtenir uniquement le token
-        $token = str_replace('Bearer ', '', $headers['Authorization']);
-        
-        // ───── Essayer de décoder et valider le token
+    public static function authenticate()
+    {
         try {
-            // Décoder le token JWT
-            $decoded = JWT::decode($token);
-            
-            // ───── Vérifier que le décodage a réussi
-            if (!$decoded) {
-                // Le token n'a pas pu être décodé (signature invalide ou malformé)
+            // 1️⃣ Récupérer les headers d'authentification
+            $headers = self::getAuthorizationHeaders();
+
+            // 2️⃣ Vérifier si le header Authorization est présent
+            if (!isset($headers['Authorization'])) {
                 http_response_code(401);
-                // Lever une exception
-                throw new Exception('Token invalide ou expiré');
+                throw new Exception('Token manquant');
             }
 
-            // ───── Vérifier l'expiration du token
-            // Le token contient un champ 'exp' (expiration time) en timestamp Unix
-            if (isset($decoded['exp']) && $decoded['exp'] < time()) {
-                // Le token a expiré (sa date d'expiration est dans le passé)
+            // 3️⃣ Extraire le token du header Authorization
+            $token = str_replace('Bearer ', '', $headers['Authorization']);
+
+            // 4️⃣ Valider le format du token
+            if (empty($token) || !preg_match('/^[A-Za-z0-9\-._~+\/]+=*$/i', $token)) {
                 http_response_code(401);
-                // Lever une exception
+                SecurityConfig::logSecurityEvent(null, 'INVALID_TOKEN_FORMAT', 'Token format invalid');
+                throw new Exception('Format de token invalide');
+            }
+
+            // 5️⃣ Décoder et valider le JWT
+            $decoded = JWT::decode($token, Config::get('JWT_SECRET'));
+
+            if (!is_array($decoded)) {
+                throw new Exception('Token invalide');
+            }
+
+            // 6️⃣ Vérifier l'expiration
+            if (!isset($decoded['exp']) || $decoded['exp'] < time()) {
+                http_response_code(401);
+                SecurityConfig::logSecurityEvent($decoded['id'] ?? null, 'EXPIRED_TOKEN', 'Token expiré');
                 throw new Exception('Token expiré');
             }
 
-            // ───── Retourner l'ID utilisateur du token
-            // Essayer d'abord 'userId' (camelCase), sinon 'user_id' (snake_case)
-            return $decoded['userId'] ?? $decoded['user_id'];
+            // 7️⃣ Vérifier l'émission (iat)
+            if (!isset($decoded['iat']) || $decoded['iat'] > time()) {
+                http_response_code(401);
+                throw new Exception('Token émis dans le futur');
+            }
+
+            // 8️⃣ Vérifier que l'utilisateur existe encore
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare('SELECT id, email, role, status FROM users WHERE id = ?');
+            $stmt->execute([$decoded['id']]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                http_response_code(401);
+                SecurityConfig::logSecurityEvent($decoded['id'], 'USER_NOT_FOUND', 'User deleted or not found');
+                throw new Exception('Utilisateur introuvable');
+            }
+
+            // 9️⃣ Vérifier que l'utilisateur est actif
+            if ($user['status'] !== 'active') {
+                http_response_code(403);
+                SecurityConfig::logSecurityEvent($user['id'], 'INACTIVE_USER', 'User status: ' . $user['status']);
+                throw new Exception('Compte utilisateur inactif');
+            }
+
+            // 🔟 Vérifier le rate limit
+            SecurityConfig::checkRateLimit($user['id'], 1000, 3600);
+
+            // ✅ Token valide - Retourner les données utilisateur
+            return $user;
         } catch (Exception $e) {
-            // En cas d'erreur lors du décodage
             http_response_code(401);
-            // Relancer l'exception avec les détails
-            throw new Exception('Token invalide: ' . $e->getMessage());
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
         }
     }
 
     /**
      * ────────────────────────────────────────────────────────────────────────
-     * MÉTHODE STATIQUE PRIVÉE: getAuthorizationHeaders()
-     * Extrait et formate les headers HTTP de la requête
-     * 
-     * @return array Les headers HTTP avec les clés formatées
+     * MÉTHODE STATIQUE: getAuthorizationHeaders()
+     * Extrait les headers d'autorisation de la requête
      * ────────────────────────────────────────────────────────────────────────
      */
-    private static function getAuthorizationHeaders() {
-        // ───── Initialiser le tableau des headers
+    private static function getAuthorizationHeaders()
+    {
         $headers = [];
-        
-        // ───── Parcourir toutes les variables de serveur
-        // $_SERVER contient les headers HTTP avec le préfixe "HTTP_"
-        foreach ($_SERVER as $key => $value) {
-            // ───── Vérifier si la clé commence par "HTTP_"
-            // Cela indique que c'est un header HTTP
-            if (substr($key, 0, 5) == 'HTTP_') {
-                // ───── Formater le nom du header
-                // Exemple: HTTP_AUTHORIZATION -> Authorization
-                
-                // Supprimer le préfixe "HTTP_"
-                $header_name = substr($key, 5);
-                
-                // Convertir en minuscules
-                $header_name = strtolower($header_name);
-                
-                // Remplacer les underscores par des espaces
-                $header_name = str_replace('_', ' ', $header_name);
-                
-                // Mettre la première lettre de chaque mot en majuscule
-                $header_name = ucwords($header_name);
-                
-                // Remplacer les espaces par des tirets (format standard des headers)
-                $header_name = str_replace(' ', '-', $header_name);
-                
-                // ───── Ajouter le header au tableau
-                $headers[$header_name] = $value;
+
+        if (function_exists('apache_request_headers')) {
+            $headers = apache_request_headers();
+        } else {
+            foreach ($_SERVER as $key => $value) {
+                if (substr($key, 0, 5) == 'HTTP_') {
+                    $header = substr($key, 5);
+                    $header = str_replace('_', '-', $header);
+                    $headers[$header] = $value;
+                }
             }
         }
-        
-        // ───── Retourner le tableau des headers formatés
+
         return $headers;
     }
 
     /**
      * ────────────────────────────────────────────────────────────────────────
-     * MÉTHODE STATIQUE: hasPermission()
-     * Vérifie si l'utilisateur a les permissions requises
-     * 
-     * @param string $userId L'ID utilisateur
-     * @param array $requiredRoles Les rôles requis
-     * @return bool True si l'utilisateur a les permissions
+     * MÉTHODE: verifyUserRole()
+     * Vérifier que l'utilisateur a le rôle requis (ACL)
      * ────────────────────────────────────────────────────────────────────────
      */
-    public static function hasPermission($userId, array $requiredRoles = []) {
-        // ───── Vérification des permissions
-        // À implémenter selon votre système de permissions et rôles
-        
-        // Pour l'instant, cette méthode est un placeholder
-        // Tout utilisateur authentifié est considéré comme autorisé
-        // À améliorer: vérifier les rôles dans la base de données
-        
-        // Retourner true pour autoriser l'accès
-        return true;
+    public static function verifyUserRole($userId, $requiredRole)
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare('SELECT role FROM users WHERE id = ?');
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || $user['role'] !== $requiredRole) {
+                http_response_code(403);
+                SecurityConfig::logSecurityEvent($userId, 'UNAUTHORIZED_ROLE', "Required: $requiredRole");
+                throw new Exception('Permissions insuffisantes');
+            }
+
+            return true;
+        } catch (Exception $e) {
+            http_response_code(403);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
     }
 }

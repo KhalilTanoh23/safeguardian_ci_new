@@ -849,7 +849,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen>
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeColor: color),
+        Switch(value: value, onChanged: onChanged, activeThumbColor: color),
       ],
     );
   }

@@ -1,26 +1,16 @@
 import 'package:flutter/material.dart';
 
+/// Styles de typographie standardisés pour l'application SafeGuardian
+/// Utilisés dans les widgets pour une cohérence visuelle maximale
 class AppTypography {
-  // Headlines
-  static const TextStyle headlineLarge = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.w700,
-    height: 1.2,
-  );
-
+  // Headlines - Utilisés pour les grands titres
   static const TextStyle headlineMedium = TextStyle(
     fontSize: 28,
     fontWeight: FontWeight.w600,
     height: 1.25,
   );
 
-  static const TextStyle headlineSmall = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.w600,
-    height: 1.3,
-  );
-
-  // Titles
+  // Titles - Utilisés pour les titres de sections
   static const TextStyle titleLarge = TextStyle(
     fontSize: 22,
     fontWeight: FontWeight.w600,
@@ -39,7 +29,7 @@ class AppTypography {
     height: 1.4,
   );
 
-  // Body text
+  // Body text - Utilisés pour le contenu principal
   static const TextStyle bodyLarge = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w400,
@@ -56,25 +46,5 @@ class AppTypography {
     fontSize: 12,
     fontWeight: FontWeight.w400,
     height: 1.5,
-  );
-
-  // Labels
-  static const TextStyle labelLarge = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-  );
-
-  static const TextStyle labelMedium = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-  );
-
-  static const TextStyle labelSmall = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-    letterSpacing: 0.5,
   );
 }

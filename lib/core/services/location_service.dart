@@ -383,7 +383,7 @@ class LocationService extends ChangeNotifier {
       circleId: CircleId(circleId),
       center: center,
       radius: radiusMeters,
-      fillColor: fillColor.withOpacity(0.2),
+      fillColor: fillColor.withValues(alpha: 0.2),
       strokeColor: strokeColor,
       strokeWidth: 2,
     );
@@ -399,3 +399,4 @@ class LocationService extends ChangeNotifier {
     super.dispose();
   }
 }
+

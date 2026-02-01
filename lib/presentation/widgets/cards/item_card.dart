@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safeguardian_ci_new/data/models/item.dart';
+import 'package:safeguardian_ci_new/presentation/theme/typography.dart';
 
 // Replace by your theme colors if you have a centralized colors.dart
 const Color primaryColor = Color(0xFF1E3A8A);
@@ -33,13 +34,13 @@ class ItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: item.isLost
-              ? const Color(0xFFEF4444).withOpacity(0.4)
+              ? const Color(0xFFEF4444).withValues(alpha: 0.4)
               : const Color(0xFFE5E7EB),
           width: item.isLost ? 2 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.06),
+            color: primaryColor.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -65,7 +66,7 @@ class ItemCard extends StatelessWidget {
                       BoxShadow(
                         color: _getCategoryColor(
                           item.category,
-                        ).withOpacity(0.3),
+                        ).withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -83,12 +84,11 @@ class ItemCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               item.name,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: primaryColor,
-                                    fontSize: 17,
-                                  ),
+                              style: AppTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: primaryColor,
+                                fontSize: 17,
+                              ),
                             ),
                           ),
                           if (item.isLost)
@@ -140,7 +140,7 @@ class ItemCard extends StatelessWidget {
         child: Image.network(
           path,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Center(
+          errorBuilder: (_, _, _) => Center(
             child: Icon(
               _getCategoryIcon(item.category),
               size: 36,
@@ -157,7 +157,7 @@ class ItemCard extends StatelessWidget {
       child: Image.asset(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Center(
+        errorBuilder: (_, _, _) => Center(
           child: Icon(
             _getCategoryIcon(item.category),
             size: 36,
@@ -196,7 +196,7 @@ class ItemCard extends StatelessWidget {
   Widget _buildCategoryBadge() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: _getCategoryColor(item.category).withOpacity(0.15),
+      color: _getCategoryColor(item.category).withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(8),
     ),
     child: Row(
@@ -325,7 +325,7 @@ class ItemCard extends StatelessWidget {
   LinearGradient _getCategoryGradient(ItemCategory category) {
     final c = _getCategoryColor(category);
     return LinearGradient(
-      colors: [c.withOpacity(0.95), c.withOpacity(0.7)],
+      colors: [c.withValues(alpha: 0.95), c.withValues(alpha: 0.7)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );

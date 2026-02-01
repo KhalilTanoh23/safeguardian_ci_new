@@ -3,14 +3,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'firebase_options.dart';
 import 'core/constants/routes.dart';
 import 'core/services/bluetooth_service.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/location_service.dart';
+import 'core/services/location_service.dart' as location_service;
 import 'data/repositories/alert_repository.dart';
+import 'data/repositories/item_repository.dart';
+import 'data/repositories/contact_repository.dart';
+import 'data/models/alert.dart';
 import 'presentation/bloc/auth_bloc/auth_bloc.dart';
+import 'presentation/bloc/contacts_bloc/contacts_bloc.dart';
+import 'presentation/bloc/items_bloc/items_bloc.dart';
+import 'presentation/bloc/alerts_bloc/alerts_bloc.dart';
+import 'presentation/bloc/emergency_bloc/emergency_bloc.dart' as emergency;
 import 'presentation/widgets/auth_wrapper.dart';
 
 // Importez vos adapters Hive ici
@@ -18,26 +26,36 @@ import 'presentation/widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('🚀 Démarrage de SafeGuardian CI');
+  debugPrint('=== DÉMARRAGE SafeGuardian CI ===');
 
   bool firebaseInitialized = false;
 
   try {
     // 1. Initialiser Firebase
-    debugPrint('🔥 Initialisation Firebase...');
-    final options = DefaultFirebaseOptions.currentPlatform;
-    // Vérifier si c'est une configuration dummy
-    if (options.apiKey.startsWith('AIzaSyDummy')) {
-      debugPrint('⚠️ Configuration Firebase dummy détectée - mode hors ligne');
+    debugPrint('🚀 Démarrage de SafeGuardian CI');
+    try {
+      final options = DefaultFirebaseOptions.currentPlatform;
+      // Vérifier si c'est une configuration dummy
+      if (options.apiKey.isEmpty || options.apiKey.startsWith('AIzaSyDummy')) {
+        debugPrint(
+          '⚠️ Configuration Firebase dummy détectée - mode hors ligne',
+        );
+        firebaseInitialized = false;
+      } else {
+        await Firebase.initializeApp(options: options);
+        firebaseInitialized = true;
+        debugPrint('✅ Firebase initialisé avec succès');
+      }
+    } catch (firebaseError) {
+      debugPrint(
+        '⚠️ Erreur lors de l\'initialisation Firebase: $firebaseError',
+      );
       firebaseInitialized = false;
-    } else {
-      await Firebase.initializeApp(options: options);
-      firebaseInitialized = true;
-      debugPrint('✅ Firebase initialisé avec succès');
     }
   } catch (e) {
-    debugPrint('❌ Erreur Firebase: $e');
-    debugPrint('🔄 L\'application démarrera en mode hors ligne');
+    debugPrint('❌ Erreur critique Firebase: $e');
+    debugPrint('⚠️ L\'application démarrera en mode hors ligne');
+    firebaseInitialized = false;
   }
 
   try {
@@ -50,19 +68,39 @@ void main() async {
     // Décommentez et ajoutez vos adapters personnalisés
     // if (!Hive.isAdapterRegistered(0)) {
     //   Hive.registerAdapter(EmergencyAlertAdapter());
-    //   debugPrint('✅ EmergencyAlertAdapter enregistré');
+    //   debugPrint(' EmergencyAlertAdapter enregistré');
     // }
 
     // 4. Lancer l'application
-    debugPrint('🎯 Lancement de l\'application...');
+    debugPrint('🚀 Lancement de l\'application...');
+    // Installer un ErrorWidget global pour rendre visible toute erreur de build
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(title: const Text('Erreur')),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Text(
+                  'Une erreur d\'affichage est survenue:\n\n${details.exceptionAsString()}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    };
+
     runApp(SafeGuardianApp(firebaseAvailable: firebaseInitialized));
-    debugPrint('✅ Application lancée');
+    debugPrint('✅ Application lancée avec succès');
   } catch (e, stackTrace) {
-    debugPrint('❌ Erreur d\'initialisation: $e');
-    debugPrint('📄 Stack trace: $stackTrace');
+    debugPrint('❌ Erreur CRITIQUE d\'initialisation: $e');
+    debugPrint('📋 Stack trace:\n$stackTrace');
 
     // Afficher un écran d'erreur
-    runApp(ErrorApp(error: e.toString()));
+    runApp(ErrorApp(error: '$e\n\nStack: $stackTrace'));
   }
 }
 
@@ -84,6 +122,10 @@ class SafeGuardianApp extends StatelessWidget {
           dispose: (_, repo) => repo.close(),
         ),
 
+        Provider<ItemRepository>(create: (_) => ItemRepository()),
+
+        Provider<ContactRepository>(create: (_) => ContactRepository()),
+
         // Service providers avec ChangeNotifier
         ChangeNotifierProvider<BluetoothService>(
           create: (_) => BluetoothService(),
@@ -95,8 +137,8 @@ class SafeGuardianApp extends StatelessWidget {
           lazy: true, // Initialise seulement quand nécessaire
         ),
 
-        ChangeNotifierProvider<LocationService>(
-          create: (_) => LocationService(),
+        ChangeNotifierProvider<location_service.LocationService>(
+          create: (_) => location_service.LocationService(),
           lazy: true, // Initialise seulement quand nécessaire
         ),
       ],
@@ -108,12 +150,22 @@ class SafeGuardianApp extends StatelessWidget {
                   ..add(AuthCheckStatus()),
           ),
 
-          // Ajoutez d'autres blocs si nécessaire
-          // BlocProvider<AlertBloc>(
-          //   create: (context) => AlertBloc(
-          //     alertRepository: context.read<AlertRepository>(),
-          //   ),
-          // ),
+          BlocProvider<ContactsBloc>(
+            create: (_) => ContactsBloc()..add(LoadContacts()),
+          ),
+
+          BlocProvider<ItemsBloc>(create: (_) => ItemsBloc()..add(LoadItems())),
+
+          BlocProvider<AlertsBloc>(
+            create: (_) => AlertsBloc()..add(LoadAlerts()),
+          ),
+
+          BlocProvider<emergency.EmergencyBloc>(
+            create: (_) => emergency.EmergencyBloc(
+              repository: _MockEmergencyRepository(),
+              locationService: _MockLocationService(),
+            ),
+          ),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -230,7 +282,8 @@ class SafeGuardianApp extends StatelessWidget {
             ),
           ),
           themeMode: ThemeMode.system,
-          // Let the AuthWrapper decide which screen to show first.
+          // During development show the dashboard directly for quicker debugging.
+          // In production use the AuthWrapper. Change this back if needed.
           home: const AuthWrapper(),
           navigatorKey: NotificationService.navigatorKey,
           onGenerateRoute: AppRoutes.onGenerateRoute,
@@ -370,5 +423,47 @@ class _ErrorCheckItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Mock implementation of EmergencyRepository for development
+class _MockEmergencyRepository implements emergency.EmergencyRepository {
+  @override
+  Future<EmergencyAlert> createAlert({
+    required String userId,
+    required String userName,
+    required String message,
+    required LatLng location,
+  }) async {
+    // Mock implementation - return a dummy alert
+    return EmergencyAlert(
+      id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      location: location,
+      timestamp: DateTime.now(),
+      message: message,
+    );
+  }
+
+  @override
+  Future<void> cancelAlert({
+    required String alertId,
+    required String reason,
+  }) async {
+    // Mock implementation - do nothing
+  }
+
+  @override
+  Future<void> sendCommunityAlert({required EmergencyAlert alert}) async {
+    // Mock implementation - do nothing
+  }
+}
+
+/// Mock implementation of LocationService for development
+class _MockLocationService implements emergency.LocationService {
+  @override
+  Future<LatLng> getCurrentLocation() async {
+    // Mock implementation - return a dummy location
+    return const LatLng(0, 0);
   }
 }

@@ -6,7 +6,8 @@ import 'package:safeguardian_ci_new/presentation/screens/main/splash_screen.dart
 import 'package:safeguardian_ci_new/presentation/screens/auth/login_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/auth/register_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/onboarding/onboarding_screen.dart';
-import 'package:safeguardian_ci_new/presentation/screens/dashboard/dashboard_screen.dart';
+import 'package:safeguardian_ci_new/presentation/screens/dashboard/dashboard_screen.dart'
+    as dashboard_screens;
 import 'package:safeguardian_ci_new/presentation/screens/emergency/emergency_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/emergency/alert_map_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/emergency/alert_history_screen.dart';
@@ -16,15 +17,16 @@ import 'package:safeguardian_ci_new/presentation/screens/items/items_screen.dart
 import 'package:safeguardian_ci_new/presentation/screens/items/add_item_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/items/lost_found_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/documents/documents_screen.dart';
-import 'package:safeguardian_ci_new/presentation/screens/documents/add_document_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/device/pair_device_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/device/device_settings_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/community/community_alerts_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/community/help_center_screen.dart';
-import 'package:safeguardian_ci_new/presentation/screens/admin/admin_dashboard.dart';
-import 'package:safeguardian_ci_new/presentation/screens/settings/settings_screen.dart';
-import 'package:safeguardian_ci_new/presentation/screens/profile/profile_screen.dart';
+import 'package:safeguardian_ci_new/presentation/screens/settings/settings_screen.dart'
+    as settings_screens;
+import 'package:safeguardian_ci_new/presentation/screens/profile/profile_screen.dart'
+    as profile_screens;
 import 'package:safeguardian_ci_new/presentation/widgets/auth_wrapper.dart';
+import 'package:safeguardian_ci_new/presentation/screens/main/qr_scanner_screen.dart';
 
 /// Gestion centralisée des routes de l'application
 class AppRoutes {
@@ -44,14 +46,13 @@ class AppRoutes {
   static const String addItem = '/ajouter-objet';
   static const String lostFound = '/perdu-trouve';
   static const String documents = '/documents';
-  static const String addDocument = '/ajouter-document';
   static const String pairDevice = '/appairer-appareil';
   static const String deviceSettings = '/parametres-appareil';
   static const String communityAlerts = '/alertes-communaute';
   static const String helpCenter = '/centre-aide';
-  static const String adminDashboard = '/tableau-de-bord-admin';
   static const String settings = '/parametres';
   static const String profile = '/profil';
+  static const String qrScanner = '/scanner-qr';
 
   /// Générateur de routes de navigation
   /// Mappe les chemins (routes) aux écrans correspondants
@@ -72,7 +73,10 @@ class AppRoutes {
       } else if (name == register) {
         return _buildRoute(const RegisterScreen(), routeSettings);
       } else if (name == dashboard) {
-        return _buildRoute(const DashboardScreen(), routeSettings);
+        return _buildRoute(
+          const dashboard_screens.SafeGuardianUltimateDashboard(),
+          routeSettings,
+        );
       } else if (name == emergency) {
         final emergencyArgs = _parseArgs<Map<String, dynamic>>(args) ?? {};
         return _buildRoute(
@@ -102,8 +106,6 @@ class AppRoutes {
         return _buildRoute(const LostFoundScreen(), routeSettings);
       } else if (name == documents) {
         return _buildRoute(const DocumentsScreen(), routeSettings);
-      } else if (name == addDocument) {
-        return _buildRoute(const AddDocumentScreen(), routeSettings);
       } else if (name == pairDevice) {
         return _buildRoute(const PairDeviceScreen(), routeSettings);
       } else if (name == deviceSettings) {
@@ -112,12 +114,18 @@ class AppRoutes {
         return _buildRoute(const CommunityAlertsScreen(), routeSettings);
       } else if (name == helpCenter) {
         return _buildRoute(const HelpCenterScreen(), routeSettings);
-      } else if (name == adminDashboard) {
-        return _buildRoute(const AdminDashboardScreen(), routeSettings);
       } else if (name == settings) {
-        return _buildRoute(const SettingsScreen(), routeSettings);
+        return _buildRoute(
+          const settings_screens.EnhancedSettingsScreen(),
+          routeSettings,
+        );
       } else if (name == profile) {
-        return _buildRoute(const ProfileScreen(), routeSettings);
+        return _buildRoute(
+          const profile_screens.EnhancedProfileScreen(),
+          routeSettings,
+        );
+      } else if (name == qrScanner) {
+        return _buildRoute(const QRScannerScreen(), routeSettings);
       } else {
         // Route 404
         return _buildRoute(

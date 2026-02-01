@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:safeguardian_ci_new/data/models/alert.dart';
+import 'package:safeguardian_ci_new/presentation/theme/typography.dart';
 import 'package:intl/intl.dart';
 
 class AlertCard extends StatelessWidget {
@@ -55,12 +56,11 @@ class AlertCard extends StatelessWidget {
                         children: [
                           Text(
                             _getAlertTitle(alert.status),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1E3A8A),
-                                  fontSize: 17,
-                                ),
+                            style: AppTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1E3A8A),
+                              fontSize: 17,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Row(
@@ -73,12 +73,11 @@ class AlertCard extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 _dateFormat.format(alert.timestamp),
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF64748B),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
@@ -103,7 +102,7 @@ class AlertCard extends StatelessWidget {
                     ),
                     child: Text(
                       alert.message!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: AppTypography.bodyMedium.copyWith(
                         color: const Color(0xFF1E3A8A),
                         fontWeight: FontWeight.w500,
                         height: 1.5,

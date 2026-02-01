@@ -38,15 +38,23 @@ class EmergencyTriggered extends EmergencyEvent {
   final String userId;
   final String userName;
   final String message;
+  final LatLng? position;
 
   const EmergencyTriggered({
     required this.userId,
     required this.userName,
     required this.message,
+    this.position,
   });
 
   @override
-  List<Object> get props => [userId, userName, message];
+  List<Object> get props => [
+    userId,
+    userName,
+    message,
+    position?.latitude ?? 0,
+    position?.longitude ?? 0,
+  ];
 }
 
 class EmergencyCancelled extends EmergencyEvent {
@@ -144,8 +152,9 @@ class EmergencyBloc extends Bloc<EmergencyEvent, EmergencyState> {
     emit(EmergencyLoading());
 
     try {
-      // Get the current device location (could throw if permissions denied).
-      final LatLng location = await locationService.getCurrentLocation();
+      // Use provided position if available, otherwise query the location service.
+      final LatLng location =
+          event.position ?? await locationService.getCurrentLocation();
 
       // Create the alert using repository (backend). Repository should return created alert with id.
       final EmergencyAlert alert = await repository.createAlert(
@@ -157,7 +166,6 @@ class EmergencyBloc extends Bloc<EmergencyEvent, EmergencyState> {
 
       emit(EmergencyAlertActive(alert));
     } catch (e) {
-      // Log stack if you have logging available.
       emit(EmergencyError('Erreur lors de la création de l\'alerte: $e'));
     } finally {
       _inProgress = false;

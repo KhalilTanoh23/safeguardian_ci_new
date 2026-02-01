@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'add_contact_screen.dart';
-import '../../../data/models/emergency_contact.dart';
-
-/// 🛡️ SafeGuardian CI - Gestion des Contacts d'Urgence
-/// Projet SILENTOPS - Équipe MIAGE
-/// Plateforme citoyenne de sécurité avec bracelet/bague IoT
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:safeguardian_ci_new/data/models/emergency_contact.dart';
+import 'package:safeguardian_ci_new/presentation/bloc/contacts_bloc/contacts_bloc.dart';
+import 'package:safeguardian_ci_new/presentation/screens/contacts/add_contact_screen.dart';
 
 class EmergencyContactsScreen extends StatefulWidget {
   const EmergencyContactsScreen({super.key});
@@ -17,103 +15,9 @@ class EmergencyContactsScreen extends StatefulWidget {
 
 class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
   String _searchQuery = '';
   EmergencyContact? _selectedContact;
-  late AnimationController _animController;
-
-  // 📋 Contacts d'urgence SafeGuardian (contexte ivoirien)
-  final List<EmergencyContact> _contacts = [
-    EmergencyContact(
-      id: '1',
-      userId: 'user1',
-      name: 'Marie Kouassi',
-      relationship: 'Mère',
-      phone: '+225 07 08 09 10 11',
-      email: 'marie.k@safeguardian.ci',
-      priority: 1,
-      color: const Color(0xFFEF4444),
-      isVerified: true,
-      canSeeLiveLocation: true,
-      lastAlert: DateTime(2024, 12, 20, 14, 30),
-      responseTime: '12s',
-      addedDate: DateTime.now(),
-    ),
-    EmergencyContact(
-      id: '2',
-      userId: 'user1',
-      name: 'Jean-Paul Diabaté',
-      relationship: 'Père',
-      phone: '+225 07 12 13 14 15',
-      email: 'jp.diabate@safeguardian.ci',
-      priority: 2,
-      color: const Color(0xFFF97316),
-      isVerified: true,
-      canSeeLiveLocation: true,
-      lastAlert: DateTime(2024, 12, 18, 9, 15),
-      responseTime: '25s',
-      addedDate: DateTime.now(),
-    ),
-    EmergencyContact(
-      id: '3',
-      userId: 'user1',
-      name: 'Sophie N\'Guessan',
-      relationship: 'Meilleur ami',
-      phone: '+225 07 20 21 22 23',
-      email: 'sophie.n@safeguardian.ci',
-      priority: 3,
-      color: const Color(0xFF3B82F6),
-      isVerified: true,
-      canSeeLiveLocation: false,
-      lastAlert: DateTime(2024, 12, 15, 16, 45),
-      responseTime: '1m 15s',
-      addedDate: DateTime.now(),
-    ),
-    EmergencyContact(
-      id: '4',
-      userId: 'user1',
-      name: 'Police Centrale',
-      relationship: 'Police (111)',
-      phone: '111',
-      email: 'urgence@police.gov.ci',
-      priority: 4,
-      color: const Color(0xFF1E293B),
-      isVerified: true,
-      canSeeLiveLocation: true,
-      lastAlert: null,
-      responseTime: 'Immédiat',
-      addedDate: DateTime.now(),
-    ),
-    EmergencyContact(
-      id: '5',
-      userId: 'user1',
-      name: 'SAMU Abidjan',
-      relationship: 'SAMU (185)',
-      phone: '185',
-      email: 'samu@sante.gov.ci',
-      priority: 5,
-      color: const Color(0xFF10B981),
-      isVerified: true,
-      canSeeLiveLocation: true,
-      lastAlert: null,
-      responseTime: 'Immédiat',
-      addedDate: DateTime.now(),
-    ),
-    EmergencyContact(
-      id: '6',
-      userId: 'user1',
-      name: 'Fatou Touré',
-      relationship: 'Voisin',
-      phone: '+225 07 30 31 32 33',
-      email: 'fatou.t@safeguardian.ci',
-      priority: 6,
-      color: const Color(0xFF8B5CF6),
-      isVerified: false,
-      canSeeLiveLocation: false,
-      lastAlert: null,
-      responseTime: 'En attente',
-      addedDate: DateTime.now(),
-    ),
-  ];
 
   @override
   void initState() {
@@ -121,8 +25,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    );
-    _animController.forward();
+    )..forward();
+    // Charger les contacts au démarrage
+    context.read<ContactsBloc>().add(LoadContacts());
   }
 
   @override
@@ -133,19 +38,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _searchQuery.isEmpty
-        ? _contacts
-        : _contacts
-              .where(
-                (c) =>
-                    c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                    c.phone.contains(_searchQuery) ||
-                    c.relationship.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
-              )
-              .toList();
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -156,35 +48,64 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildAppBar(),
-              if (_selectedContact != null) _buildSelectedCard(),
-              SliverToBoxAdapter(child: _buildStats()),
-              SliverToBoxAdapter(child: _buildSearchBar()),
-              SliverToBoxAdapter(child: _buildEscaladeBanner()),
-              if (filtered.isEmpty)
-                SliverFillRemaining(child: _buildEmpty())
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.all(20),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (c, i) => _buildContactCard(filtered[i], i),
-                      childCount: filtered.length,
+          child: BlocBuilder<ContactsBloc, ContactsState>(
+            builder: (context, state) {
+              final List<EmergencyContact> contacts = state is ContactsLoaded
+                  ? List<EmergencyContact>.from(state.contacts)
+                  : [];
+              final filtered = _searchQuery.isEmpty
+                  ? contacts
+                  : contacts
+                        .where(
+                          (c) =>
+                              c.name.toLowerCase().contains(
+                                _searchQuery.toLowerCase(),
+                              ) ||
+                              c.phone.contains(_searchQuery) ||
+                              c.relationship.toLowerCase().contains(
+                                _searchQuery.toLowerCase(),
+                              ),
+                        )
+                        .toList();
+
+              return CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildAppBar(),
+                  if (_selectedContact != null)
+                    _buildSelectedCard(_selectedContact!),
+                  SliverToBoxAdapter(child: _buildStats(contacts)),
+                  SliverToBoxAdapter(child: _buildSearchBar()),
+                  SliverToBoxAdapter(child: _buildEscaladeBanner()),
+                  if (filtered.isEmpty)
+                    SliverFillRemaining(child: _buildEmpty())
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.all(20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (c, i) => _buildContactCard(filtered[i], i),
+                          childCount: filtered.length,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-            ],
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+                ],
+              );
+            },
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF6366F1),
+        onPressed: _addContact,
+        child: const Icon(Icons.person_add_rounded, color: Colors.white),
       ),
       bottomNavigationBar: _selectedContact != null ? _buildBottomBar() : null,
     );
   }
 
+  // ========== APP BAR ==========
   Widget _buildAppBar() {
     return SliverAppBar(
       expandedHeight: 200,
@@ -202,91 +123,77 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
             shadows: [Shadow(color: Colors.black45, blurRadius: 10)],
           ),
         ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF6366F1).withOpacity(0.3),
-                const Color(0xFF8B5CF6).withOpacity(0.2),
-                Colors.transparent,
-              ],
+        background: Stack(
+          children: [
+            Positioned(
+              right: -40,
+              top: 20,
+              child: Icon(
+                Icons.security_rounded,
+                size: 180,
+                color: Colors.white.withAlpha((255 * 0.05).toInt()),
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -40,
-                top: 20,
-                child: Icon(
-                  Icons.security_rounded,
-                  size: 180,
-                  color: Colors.white.withOpacity(0.05),
-                ),
-              ),
-              Positioned(
-                left: 20,
-                bottom: 70,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+            Positioned(
+              left: 20,
+              bottom: 70,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFF6366F1,
+                      ).withAlpha((255 * 0.3).toInt()),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(
+                          0xFF6366F1,
+                        ).withAlpha((255 * 0.5).toInt()),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFF6366F1).withOpacity(0.5),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.shield_rounded,
+                          color: Colors.white,
+                          size: 14,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.shield_rounded,
+                        SizedBox(width: 6),
+                        Text(
+                          'SafeGuardian CI',
+                          style: TextStyle(
                             color: Colors.white,
-                            size: 14,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'SafeGuardian CI',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Alertés lors d\'une urgence bracelet/bague',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                        shadows: const [
-                          Shadow(color: Colors.black45, blurRadius: 5),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Alertés lors d\'une urgence bracelet/bague',
+                    style: TextStyle(
+                      color: Colors.white.withAlpha((255 * 0.8).toInt()),
+                      fontSize: 12,
+                      shadows: const [
+                        Shadow(color: Colors.black45, blurRadius: 5),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-          tooltip: 'Ajouter un contact',
-          onPressed: _addContact,
-        ),
         IconButton(
           icon: const Icon(Icons.settings_rounded, color: Colors.white),
           onPressed: _showSettings,
@@ -299,9 +206,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
-  Widget _buildSelectedCard() {
-    if (_selectedContact == null) return const SliverToBoxAdapter();
-
+  // ========== SELECTED CONTACT CARD ==========
+  Widget _buildSelectedCard(EmergencyContact contact) {
     return SliverToBoxAdapter(
       child: Container(
         margin: const EdgeInsets.all(20),
@@ -309,18 +215,18 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _selectedContact!.color.withOpacity(0.3),
-              _selectedContact!.color.withOpacity(0.1),
+              contact.color.withAlpha((255 * 0.3).toInt()),
+              contact.color.withAlpha((255 * 0.1).toInt()),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: _selectedContact!.color.withOpacity(0.5),
+            color: contact.color.withAlpha((255 * 0.5).toInt()),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: _selectedContact!.color.withOpacity(0.3),
+              color: contact.color.withAlpha((255 * 0.3).toInt()),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -333,7 +239,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: _selectedContact!.color.withOpacity(0.3),
+                    color: contact.color.withAlpha((255 * 0.3).toInt()),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -348,7 +254,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _selectedContact!.name,
+                        contact.name,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -357,9 +263,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _selectedContact!.relationship,
+                        contact.relationship,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withAlpha((255 * 0.8).toInt()),
                           fontSize: 14,
                         ),
                       ),
@@ -376,25 +282,21 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _actionBtn(
-                  Icons.call_rounded,
-                  'Appeler',
-                  () => _call(_selectedContact!),
-                ),
+                _actionBtn(Icons.call_rounded, 'Appeler', () => _call(contact)),
                 _actionBtn(
                   Icons.message_rounded,
                   'SMS',
-                  () => _message(_selectedContact!),
+                  () => _message(contact),
                 ),
                 _actionBtn(
                   Icons.edit_rounded,
                   'Modifier',
-                  () => _edit(_selectedContact!),
+                  () => _edit(contact),
                 ),
                 _actionBtn(
                   Icons.delete_rounded,
                   'Supprimer',
-                  () => _delete(_selectedContact!),
+                  () => _delete(contact),
                   destructive: true,
                 ),
               ],
@@ -405,6 +307,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== ACTION BUTTON ==========
   Widget _actionBtn(
     IconData icon,
     String label,
@@ -416,8 +319,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         Container(
           decoration: BoxDecoration(
             color: destructive
-                ? Colors.red.withOpacity(0.2)
-                : Colors.white.withOpacity(0.2),
+                ? Colors.red.withAlpha((255 * 0.2).toInt())
+                : Colors.white.withAlpha((255 * 0.2).toInt()),
             shape: BoxShape.circle,
           ),
           child: IconButton(
@@ -442,24 +345,25 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
-  Widget _buildStats() {
-    final verified = _contacts.where((c) => c.isVerified).length;
-    final avgResponse = _calcAvg();
-    final withGPS = _contacts.where((c) => c.canSeeLiveLocation).length;
+  // ========== STATS CARD ==========
+  Widget _buildStats(List<EmergencyContact> contacts) {
+    final verified = contacts.where((c) => c.isVerified).length;
+    final avgResponse = _calcAvgResponse(contacts);
+    final withGPS = contacts.where((c) => c.canSeeLiveLocation).length;
 
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
+        color: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withAlpha((255 * 0.1).toInt())),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _stat(
-            _contacts.length.toString(),
+            contacts.length.toString(),
             'Contacts',
             Icons.people_rounded,
             const Color(0xFF3B82F6),
@@ -487,13 +391,14 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== STAT ITEM ==========
   Widget _stat(String val, String label, IconData icon, Color color) {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withAlpha((255 * 0.2).toInt()),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 20),
@@ -510,12 +415,16 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+          style: TextStyle(
+            color: Colors.white.withAlpha((255 * 0.6).toInt()),
+            fontSize: 11,
+          ),
         ),
       ],
     );
   }
 
+  // ========== SEARCH BAR ==========
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -524,10 +433,12 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Rechercher un contact...',
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          hintStyle: TextStyle(
+            color: Colors.white.withAlpha((255 * 0.3).toInt()),
+          ),
           prefixIcon: Icon(
             Icons.search_rounded,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withAlpha((255 * 0.5).toInt()),
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -536,14 +447,16 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                 )
               : null,
           filled: true,
-          fillColor: const Color(0xFF1E293B).withOpacity(0.5),
+          fillColor: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+            borderSide: BorderSide(
+              color: Colors.white.withAlpha((255 * 0.1).toInt()),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -554,6 +467,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== ESCALADE BANNER ==========
   Widget _buildEscaladeBanner() {
     return Container(
       margin: const EdgeInsets.all(20),
@@ -561,19 +475,21 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF3B82F6).withOpacity(0.2),
-            const Color(0xFF8B5CF6).withOpacity(0.1),
+            const Color(0xFF3B82F6).withAlpha((255 * 0.2).toInt()),
+            const Color(0xFF8B5CF6).withAlpha((255 * 0.1).toInt()),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+        border: Border.all(
+          color: const Color(0xFF3B82F6).withAlpha((255 * 0.3).toInt()),
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF3B82F6).withOpacity(0.3),
+              color: const Color(0xFF3B82F6).withAlpha((255 * 0.3).toInt()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -599,7 +515,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                 Text(
                   'Alerte communautaire après 2 min sans réponse (rayon 1km)',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withAlpha((255 * 0.7).toInt()),
                     fontSize: 11,
                     height: 1.3,
                   ),
@@ -612,6 +528,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== CONTACT CARD ==========
   Widget _buildContactCard(EmergencyContact contact, int index) {
     return TweenAnimationBuilder(
       duration: Duration(milliseconds: 400 + (index * 100)),
@@ -629,18 +546,18 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.5),
+            color: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _selectedContact?.id == contact.id
-                  ? contact.color.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.1),
+                  ? contact.color.withAlpha((255 * 0.5).toInt())
+                  : Colors.white.withAlpha((255 * 0.1).toInt()),
               width: _selectedContact?.id == contact.id ? 2 : 1,
             ),
             boxShadow: _selectedContact?.id == contact.id
                 ? [
                     BoxShadow(
-                      color: contact.color.withOpacity(0.2),
+                      color: contact.color.withAlpha((255 * 0.2).toInt()),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -657,8 +574,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          contact.color.withOpacity(0.3),
-                          contact.color.withOpacity(0.1),
+                          contact.color.withAlpha((255 * 0.3).toInt()),
+                          contact.color.withAlpha((255 * 0.1).toInt()),
                         ],
                       ),
                       shape: BoxShape.circle,
@@ -717,7 +634,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withOpacity(0.2),
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withAlpha((255 * 0.2).toInt()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Row(
@@ -745,7 +664,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                     Text(
                       contact.relationship,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withAlpha((255 * 0.7).toInt()),
                         fontSize: 13,
                       ),
                     ),
@@ -777,7 +696,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: contact.color.withOpacity(0.2),
+                  color: contact.color.withAlpha((255 * 0.2).toInt()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -796,11 +715,12 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== CHIP ==========
   Widget _chip(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha((255 * 0.1).toInt()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -821,6 +741,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== EMPTY STATE ==========
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -829,7 +750,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           Icon(
             Icons.people_outline_rounded,
             size: 120,
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withAlpha((255 * 0.1).toInt()),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -845,7 +766,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
             'Ajoutez des contacts pour activer\nvotre réseau de sécurité',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withAlpha((255 * 0.6).toInt()),
               fontSize: 14,
             ),
           ),
@@ -870,12 +791,15 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
+  // ========== BOTTOM BAR ==========
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.95),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        color: const Color(0xFF1E293B).withAlpha((255 * 0.95).toInt()),
+        border: Border(
+          top: BorderSide(color: Colors.white.withAlpha((255 * 0.1).toInt())),
+        ),
       ),
       child: Row(
         children: [
@@ -915,8 +839,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     );
   }
 
-  String _calcAvg() {
-    final withResponse = _contacts
+  // ========== HELPER METHODS ==========
+  String _calcAvgResponse(List<EmergencyContact> contacts) {
+    final withResponse = contacts
         .where(
           (c) =>
               c.lastAlert != null &&
@@ -943,6 +868,334 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     return avg < 60 ? '${avg}s' : '${avg ~/ 60}m';
   }
 
+  // ========== ACTIONS ==========
+  void _addContact() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (c) => const AddEmergencyContactScreen()),
+    ).then((result) {
+      if (!mounted) return;
+      if (result != null && result is EmergencyContact) {
+        context.read<ContactsBloc>().add(AddContact(result));
+      }
+    });
+  }
+
+  void _call(EmergencyContact c) async {
+    final uri = Uri(scheme: 'tel', path: c.phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      _showError('Impossible de passer l\'appel');
+    }
+  }
+
+  void _message(EmergencyContact c) async {
+    final uri = Uri(scheme: 'sms', path: c.phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      _showError('Impossible d\'ouvrir les SMS');
+    }
+  }
+
+  void _edit(EmergencyContact c) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AddEmergencyContactScreen(contact: c),
+      ),
+    ).then((result) {
+      if (!mounted) return;
+      if (result != null && result is EmergencyContact) {
+        context.read<ContactsBloc>().add(UpdateContact(result));
+      }
+    });
+  }
+
+  void _delete(EmergencyContact c) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withAlpha((255 * 0.2).toInt()),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_rounded,
+                color: Colors.red,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Supprimer',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir retirer ${c.name} de votre réseau SafeGuardian ?',
+          style: TextStyle(color: Colors.white.withAlpha((255 * 0.8).toInt())),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              context.read<ContactsBloc>().add(DeleteContact(c.id));
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changePriority() {
+    if (_selectedContact == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (c) => _buildPrioritySheet(),
+    );
+  }
+
+  Widget _buildPrioritySheet() {
+    final colors = [
+      const Color(0xFFEF4444),
+      const Color(0xFFF97316),
+      const Color(0xFF3B82F6),
+      const Color(0xFF10B981),
+      const Color(0xFF8B5CF6),
+      const Color(0xFF64748B),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 50,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha((255 * 0.3).toInt()),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Changer la priorité',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ...List.generate(6, (i) {
+            final level = i + 1;
+            final selected = _selectedContact!.priority == level;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                onTap: () {
+                  final updated = _selectedContact!.copyWith(priority: level);
+                  context.read<ContactsBloc>().add(UpdateContact(updated));
+                  setState(() => _selectedContact = updated);
+                  Navigator.pop(context);
+                },
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: colors[i].withAlpha((255 * 0.2).toInt()),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      level.toString(),
+                      style: TextStyle(
+                        color: colors[i],
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(
+                  'Niveau $level',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                trailing: selected
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF10B981),
+                      )
+                    : null,
+                tileColor: selected
+                    ? colors[i].withAlpha((255 * 0.1).toInt())
+                    : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  void _testAlert() {
+    if (_selectedContact == null) return;
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF97316).withAlpha((255 * 0.2).toInt()),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFF97316),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Test d\'alerte',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette action enverra une alerte de test à ${_selectedContact!.name}.',
+              style: TextStyle(
+                color: Colors.white.withAlpha((255 * 0.8).toInt()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withAlpha((255 * 0.1).toInt()),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF3B82F6).withAlpha((255 * 0.3).toInt()),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_rounded,
+                    color: Color(0xFF3B82F6),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Le contact recevra un SMS indiquant qu\'il s\'agit d\'un test',
+                      style: TextStyle(
+                        color: const Color(0xFF3B82F6),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(c);
+              final uri = Uri(
+                scheme: 'sms',
+                path: _selectedContact!.phone,
+                queryParameters: {
+                  'body':
+                      '🔔 TEST SAFEGUARDIAN CI\n\nCeci est un test d\'alerte. Le système fonctionne correctement. Aucune action requise.\n\n- Projet SILENTOPS',
+                },
+              );
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Test envoyé à ${_selectedContact!.name}'),
+                    backgroundColor: const Color(0xFFF97316),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              } else {
+                _showError('Impossible d\'envoyer le SMS');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF97316),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Envoyer le test'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSettings() {
     showModalBottomSheet(
       context: context,
@@ -959,7 +1212,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withAlpha((255 * 0.3).toInt()),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -1023,7 +1276,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF334155).withOpacity(0.5),
+        color: const Color(0xFF334155).withAlpha((255 * 0.5).toInt()),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -1031,7 +1284,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.2),
+              color: const Color(0xFF6366F1).withAlpha((255 * 0.2).toInt()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: const Color(0xFF6366F1), size: 22),
@@ -1052,7 +1305,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withAlpha((255 * 0.6).toInt()),
                     fontSize: 12,
                   ),
                 ),
@@ -1062,7 +1315,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           Switch(
             value: value,
             onChanged: (_) {},
-            activeColor: const Color(0xFF6366F1),
+            activeThumbColor: const Color(0xFF6366F1),
           ),
         ],
       ),
@@ -1123,10 +1376,12 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF97316).withOpacity(0.2),
+                  color: const Color(0xFFF97316).withAlpha((255 * 0.2).toInt()),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFFF97316).withOpacity(0.3),
+                    color: const Color(
+                      0xFFF97316,
+                    ).withAlpha((255 * 0.3).toInt()),
                   ),
                 ),
                 child: Row(
@@ -1202,383 +1457,12 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               child: Text(
                 text,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withAlpha((255 * 0.8).toInt()),
                   fontSize: 13,
                   height: 1.4,
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _addContact() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (c) => const AddEmergencyContactScreen()),
-    );
-
-    if (result != null && result is EmergencyContact) {
-      setState(() => _contacts.add(result));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white),
-              const SizedBox(width: 12),
-              Text('${result.name} ajouté au réseau'),
-            ],
-          ),
-          backgroundColor: const Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
-  void _call(EmergencyContact c) async {
-    final uri = Uri(scheme: 'tel', path: c.phone);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      _showError('Impossible de passer l\'appel');
-    }
-  }
-
-  void _message(EmergencyContact c) async {
-    final uri = Uri(scheme: 'sms', path: c.phone);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      _showError('Impossible d\'ouvrir les SMS');
-    }
-  }
-
-  void _edit(EmergencyContact c) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => AddEmergencyContactScreen(contact: c),
-      ),
-    );
-
-    if (result != null && result is EmergencyContact) {
-      setState(() {
-        final idx = _contacts.indexWhere((x) => x.id == c.id);
-        if (idx != -1) {
-          _contacts[idx] = result;
-          _selectedContact = result;
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${result.name} modifié'),
-          backgroundColor: const Color(0xFF3B82F6),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
-  void _delete(EmergencyContact c) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.delete_rounded,
-                color: Colors.red,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Supprimer',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Êtes-vous sûr de vouloir retirer ${c.name} de votre réseau SafeGuardian ?',
-          style: TextStyle(color: Colors.white.withOpacity(0.8)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _contacts.remove(c);
-                _selectedContact = null;
-              });
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${c.name} supprimé'),
-                  backgroundColor: Colors.red,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _changePriority() {
-    if (_selectedContact == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (c) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Changer la priorité',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ...List.generate(6, (i) {
-              final level = i + 1;
-              final selected = _selectedContact!.priority == level;
-              final colors = [
-                const Color(0xFFEF4444),
-                const Color(0xFFF97316),
-                const Color(0xFF3B82F6),
-                const Color(0xFF10B981),
-                const Color(0xFF8B5CF6),
-                const Color(0xFF64748B),
-              ];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  onTap: () {
-                    setState(() {
-                      final idx = _contacts.indexWhere(
-                        (x) => x.id == _selectedContact!.id,
-                      );
-                      if (idx != -1) {
-                        _contacts[idx] = _selectedContact!.copyWith(
-                          priority: level,
-                        );
-                        _selectedContact = _contacts[idx];
-                      }
-                    });
-                    Navigator.pop(c);
-                  },
-                  leading: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: colors[i].withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        level.toString(),
-                        style: TextStyle(
-                          color: colors[i],
-                          fontWeight: FontWeight.w900,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    'Niveau $level',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  trailing: selected
-                      ? const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF10B981),
-                        )
-                      : null,
-                  tileColor: selected ? colors[i].withOpacity(0.1) : null,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _testAlert() {
-    if (_selectedContact == null) return;
-
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF97316).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Color(0xFFF97316),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Test d\'alerte',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Cette action enverra une alerte de test à ${_selectedContact!.name}.',
-              style: TextStyle(color: Colors.white.withOpacity(0.8)),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF3B82F6).withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_rounded,
-                    color: Color(0xFF3B82F6),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Le contact recevra un SMS indiquant qu\'il s\'agit d\'un test',
-                      style: TextStyle(
-                        color: const Color(0xFF3B82F6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(c);
-              final uri = Uri(
-                scheme: 'sms',
-                path: _selectedContact!.phone,
-                queryParameters: {
-                  'body':
-                      '🔔 TEST SAFEGUARDIAN CI\n\nCeci est un test d\'alerte. Le système fonctionne correctement. Aucune action requise.\n\n- Projet SILENTOPS',
-                },
-              );
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Test envoyé à ${_selectedContact!.name}'),
-                    backgroundColor: const Color(0xFFF97316),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              } else {
-                _showError('Impossible d\'envoyer le SMS');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF97316),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Envoyer le test'),
           ),
         ],
       ),

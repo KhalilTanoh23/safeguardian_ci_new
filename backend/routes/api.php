@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ════════════════════════════════════════════════════════════════════════════
  * Router des routes API
@@ -22,7 +23,7 @@ header('Content-Type: application/json;charset=utf-8');
 // ────────────────────────────────────────────────────────────────────────────
 
 // Définir un gestionnaire d'erreur personnalisé pour intercepter toutes les erreurs
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     // Vérifier si on est en mode développement
     if (Config::isDevelopment()) {
         // En développement, afficher le message d'erreur complet
@@ -39,7 +40,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 // ────────────────────────────────────────────────────────────────────────────
 
 // Définir un gestionnaire d'exception personnalisé pour les exceptions non capturées
-set_exception_handler(function($exception) {
+set_exception_handler(function ($exception) {
     // Vérifier si on est en mode développement
     if (Config::isDevelopment()) {
         // En développement, afficher le message d'exception complet
@@ -140,14 +141,15 @@ try {
 // Traiter les routes d'authentification (register, login, profile)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function handleAuthRoutes($method, $uri_parts, $controller) {
+function handleAuthRoutes($method, $uri_parts, $controller)
+{
     // Vérifier la méthode HTTP utilisée
     switch ($method) {
         // ───── Cas POST: Requêtes de création
         case 'POST':
             // Lire les données JSON envoyées dans le corps de la requête
             $data = json_decode(file_get_contents('php://input'), true);
-            
+
             // Vérifier quel endpoint POST est demandé
             if ($uri_parts[1] == 'register') {
                 // Appeler la méthode d'enregistrement du contrôleur
@@ -167,12 +169,26 @@ function handleAuthRoutes($method, $uri_parts, $controller) {
         case 'GET':
             // Vérifier quel endpoint GET est demandé
             if ($uri_parts[1] == 'profile') {
-                // Authentifier l'utilisateur à partir du token JWT
-                $userId = AuthMiddleware::authenticate();
-                // Récupérer le profil de l'utilisateur connecté
-                $result = $controller->getProfile($userId);
+                // Récupérer le profil de l'utilisateur connecté (vérifie le token en interne)
+                $result = $controller->getProfile();
             } else {
                 // L'endpoint GET n'existe pas
+                http_response_code(404);
+                // Retourner un message d'erreur
+                $result = ['error' => 'Route non trouvée'];
+            }
+            break;
+
+        // ───── Cas PUT: Requêtes de mise à jour
+        case 'PUT':
+            // Vérifier quel endpoint PUT est demandé
+            if ($uri_parts[1] == 'profile') {
+                // Lire les données JSON envoyées dans le corps de la requête
+                $data = json_decode(file_get_contents('php://input'), true);
+                // Mettre à jour le profil de l'utilisateur connecté (vérifie le token en interne)
+                $result = $controller->updateProfile();
+            } else {
+                // L'endpoint PUT n'existe pas
                 http_response_code(404);
                 // Retourner un message d'erreur
                 $result = ['error' => 'Route non trouvée'];
@@ -197,7 +213,8 @@ function handleAuthRoutes($method, $uri_parts, $controller) {
 // Traiter les routes des contacts d'urgence (CRUD)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function handleContactRoutes($method, $uri_parts, $controller) {
+function handleContactRoutes($method, $uri_parts, $controller)
+{
     // Authentifier l'utilisateur avant toute opération (sécurité)
     $userId = AuthMiddleware::authenticate();
 
@@ -265,7 +282,8 @@ function handleContactRoutes($method, $uri_parts, $controller) {
 // Traiter les routes des alertes (GET, POST, PUT)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function handleAlertRoutes($method, $uri_parts, $controller) {
+function handleAlertRoutes($method, $uri_parts, $controller)
+{
     // Vérifier la méthode HTTP utilisée
     switch ($method) {
         // ───── Cas GET: Récupérer les alertes
@@ -322,7 +340,8 @@ function handleAlertRoutes($method, $uri_parts, $controller) {
 // Traiter les routes des objets (CRUD + marquer comme perdu)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function handleItemRoutes($method, $uri_parts, $controller) {
+function handleItemRoutes($method, $uri_parts, $controller)
+{
     // Authentifier l'utilisateur avant toute opération
     $userId = AuthMiddleware::authenticate();
 
@@ -348,7 +367,7 @@ function handleItemRoutes($method, $uri_parts, $controller) {
             if (isset($uri_parts[1])) {
                 // Lire les données mises à jour de l'objet
                 $data = json_decode(file_get_contents('php://input'), true);
-                
+
                 // Vérifier si la requête cherche à marquer l'objet comme perdu
                 if (isset($data['isLost'])) {
                     // Appeler la méthode pour marquer l'objet comme perdu ou retrouvé
@@ -397,7 +416,8 @@ function handleItemRoutes($method, $uri_parts, $controller) {
 // Traiter les routes des documents (GET avec téléchargement, POST, PUT, DELETE)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function handleDocumentRoutes($method, $uri_parts, $controller) {
+function handleDocumentRoutes($method, $uri_parts, $controller)
+{
     // Authentifier l'utilisateur avant toute opération
     $userId = AuthMiddleware::authenticate();
 

@@ -91,6 +91,22 @@ CREATE TABLE documents (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Table des partages de documents
+CREATE TABLE document_shares (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    document_id INT NOT NULL,
+    shared_by_user_id INT NOT NULL,
+    shared_with_user_id INT NOT NULL,
+    permissions ENUM('view', 'download', 'edit') DEFAULT 'view',
+    shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_share (document_id, shared_with_user_id)
+);
+
 -- Table des paramètres utilisateur
 CREATE TABLE user_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,

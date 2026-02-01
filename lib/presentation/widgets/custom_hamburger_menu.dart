@@ -15,11 +15,11 @@ class CustomHamburgerMenu extends StatefulWidget {
   final int selectedIndex;
 
   const CustomHamburgerMenu({
-    Key? key,
+    super.key,
     required this.items,
     required this.onItemSelected,
     required this.selectedIndex,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomHamburgerMenu> createState() => _CustomHamburgerMenuState();
@@ -82,10 +82,10 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withAlpha((255 * 0.2).toInt()),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withAlpha((255 * 0.3).toInt()),
                       width: 1.5,
                     ),
                   ),
@@ -143,7 +143,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
         if (_isMenuOpen)
           GestureDetector(
             onTap: _toggleMenu,
-            child: Container(color: Colors.black.withOpacity(0.3)),
+            child: Container(color: Colors.black.withAlpha((255 * 0.3).toInt())),
           ),
         // Horizontal Menu
         SlideTransition(
@@ -158,7 +158,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withAlpha((255 * 0.15).toInt()),
                   blurRadius: 20,
                   offset: const Offset(10, 0),
                 ),
@@ -177,7 +177,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                        color: const Color(0xFF1E3A8A).withAlpha((255 * 0.1).toInt()),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -209,7 +209,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withAlpha((255 * 0.15).toInt()),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -244,12 +244,12 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? item.color.withOpacity(0.15)
+                                ? item.color.withAlpha((255 * 0.15).toInt())
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(14),
                             border: isSelected
                                 ? Border.all(
-                                    color: item.color.withOpacity(0.3),
+                                    color: item.color.withAlpha((255 * 0.3).toInt()),
                                     width: 2,
                                   )
                                 : null,
@@ -259,7 +259,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: item.color.withOpacity(0.2),
+                                  color: item.color.withAlpha((255 * 0.2).toInt()),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
@@ -292,7 +292,7 @@ class _CustomHamburgerMenuState extends State<CustomHamburgerMenu>
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: item.color.withOpacity(0.2),
+                                    color: item.color.withAlpha((255 * 0.2).toInt()),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -334,3 +334,4 @@ class HamburgerMenuItem {
     required this.color,
   });
 }
+

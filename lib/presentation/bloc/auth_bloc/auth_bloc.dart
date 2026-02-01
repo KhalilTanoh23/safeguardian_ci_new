@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../data/models/user.dart';
@@ -45,6 +46,21 @@ class AuthUpdateSettingsRequested extends AuthEvent {
   List<Object> get props => [settings];
 }
 
+class AuthUpdateProfileRequested extends AuthEvent {
+  final String firstName;
+  final String lastName;
+  final String? phone;
+
+  const AuthUpdateProfileRequested({
+    required this.firstName,
+    required this.lastName,
+    this.phone,
+  });
+
+  @override
+  List<Object> get props => [firstName, lastName, if (phone != null) phone!];
+}
+
 // ======= NOUVEAUX EVENTS GOOGLE / APPLE =======
 class AuthGoogleLoginRequested extends AuthEvent {}
 
@@ -85,13 +101,16 @@ class AuthError extends AuthState {
 // ===================== BLOC =====================
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final bool firebaseAvailable;
+  final ApiService? apiService;
 
-  AuthBloc({required this.firebaseAvailable}) : super(AuthInitial()) {
+  AuthBloc({required this.firebaseAvailable, this.apiService})
+    : super(AuthInitial()) {
     on<AuthCheckStatus>(_onAuthCheckStatus);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthRegisterRequested>(_onAuthRegisterRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
     on<AuthUpdateSettingsRequested>(_onAuthUpdateSettingsRequested);
+    on<AuthUpdateProfileRequested>(_onAuthUpdateProfileRequested);
 
     // Ajout des handlers Google / Apple
     on<AuthGoogleLoginRequested>(_onAuthGoogleLoginRequested);
@@ -103,8 +122,76 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckStatus event,
     Emitter<AuthState> emit,
   ) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    emit(AuthUnauthenticated());
+    try {
+      final apiService = this.apiService ?? ApiService();
+      final token = await apiService.getToken();
+
+      if (token != null && token.isNotEmpty) {
+        // Token exists, try to get user profile
+        try {
+          final profileResponse = await apiService.getProfile();
+
+          // Convertir le rôle string en UserRole enum
+          UserRole roleEnum = UserRole.user;
+          if (profileResponse['role'] != null) {
+            try {
+              roleEnum = UserRole.values.firstWhere(
+                (role) => role.name == profileResponse['role'],
+                orElse: () => UserRole.user,
+              );
+            } catch (e) {
+              roleEnum = UserRole.user;
+            }
+          }
+
+          // Convertir le statut string en UserStatus enum
+          UserStatus statusEnum = UserStatus.active;
+          if (profileResponse['status'] != null) {
+            try {
+              statusEnum = UserStatus.values.firstWhere(
+                (status) => status.name == profileResponse['status'],
+                orElse: () => UserStatus.active,
+              );
+            } catch (e) {
+              statusEnum = UserStatus.active;
+            }
+          }
+
+          // Créer l'utilisateur à partir du profil
+          final user = User(
+            id: profileResponse['id']?.toString() ?? '',
+            email: profileResponse['email'] ?? '',
+            phone: profileResponse['phone'] ?? '',
+            firstName: profileResponse['firstName'] ?? '',
+            lastName: profileResponse['lastName'] ?? '',
+            profileImage: profileResponse['profileImage'],
+            createdAt: profileResponse['createdAt'] != null
+                ? DateTime.parse(profileResponse['createdAt'])
+                : DateTime.now(),
+            status: statusEnum,
+            roles: [roleEnum],
+            settings: UserSettings(), // TODO: Load from API when available
+            emergencyInfo: EmergencyInfo(),
+          );
+
+          emit(AuthAuthenticated(user));
+        } catch (profileError) {
+          // Token existe mais le profil ne peut pas être récupéré
+          // Le token est peut-être expiré ou invalide
+          debugPrint('❌ Impossible de récupérer le profil: $profileError');
+          await apiService.removeToken();
+          emit(AuthUnauthenticated());
+        }
+      } else {
+        emit(AuthUnauthenticated());
+      }
+    } catch (e) {
+      // If token check fails, clear token and unauthenticate
+      debugPrint('❌ Erreur vérification statut auth: $e');
+      final apiService = this.apiService ?? ApiService();
+      await apiService.removeToken();
+      emit(AuthUnauthenticated());
+    }
   }
 
   // Login classique
@@ -114,23 +201,39 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
       if (event.email.isEmpty || event.password.isEmpty) {
         emit(const AuthError('Email et mot de passe requis'));
         return;
       }
 
-      final parts = event.email.split('@');
-      final firstName = parts.isNotEmpty && parts[0].isNotEmpty
-          ? parts[0].split('.').first
-          : 'Utilisateur';
+      final apiService = this.apiService ?? ApiService();
+      final response = await apiService.login(event.email, event.password);
+
+      // Créer l'utilisateur à partir de la réponse API
+      final userData = response['user'];
+
+      // Convertir le rôle string en UserRole enum
+      UserRole roleEnum = UserRole.user;
+      if (userData['role'] != null) {
+        try {
+          roleEnum = UserRole.values.firstWhere(
+            (role) => role.name == userData['role'],
+            orElse: () => UserRole.user,
+          );
+        } catch (e) {
+          roleEnum = UserRole.user;
+        }
+      }
+
       final user = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        email: event.email,
-        phone: '',
-        firstName: firstName,
-        lastName: '',
+        id: userData['id']?.toString() ?? '',
+        email: userData['email'] ?? '',
+        phone: userData['phone'] ?? '',
+        firstName: userData['firstName'] ?? userData['first_name'] ?? '',
+        lastName: userData['lastName'] ?? userData['last_name'] ?? '',
         createdAt: DateTime.now(),
+        status: UserStatus.active,
+        roles: [roleEnum],
         settings: UserSettings(),
         emergencyInfo: EmergencyInfo(),
       );
@@ -148,7 +251,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
-      await Future.delayed(const Duration(milliseconds: 600));
       if (event.email.isEmpty ||
           event.password.isEmpty ||
           event.fullName.isEmpty) {
@@ -160,13 +262,40 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final firstName = names.isNotEmpty ? names.first : 'Utilisateur';
       final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
 
-      final user = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+      final apiService = this.apiService ?? ApiService();
+      final response = await apiService.register(
         email: event.email,
-        phone: '',
+        password: event.password,
         firstName: firstName,
         lastName: lastName,
+        phone: '', // Phone will be empty for now, can be updated later
+      );
+
+      // Créer l'utilisateur à partir de la réponse API
+      final userData = response['user'];
+
+      // Convertir le rôle string en UserRole enum
+      UserRole roleEnum = UserRole.user;
+      if (userData['role'] != null) {
+        try {
+          roleEnum = UserRole.values.firstWhere(
+            (role) => role.name == userData['role'],
+            orElse: () => UserRole.user,
+          );
+        } catch (e) {
+          roleEnum = UserRole.user;
+        }
+      }
+
+      final user = User(
+        id: userData['id']?.toString() ?? '',
+        email: userData['email'] ?? '',
+        phone: userData['phone'] ?? '',
+        firstName: userData['firstName'] ?? userData['first_name'] ?? firstName,
+        lastName: userData['lastName'] ?? userData['last_name'] ?? lastName,
         createdAt: DateTime.now(),
+        status: UserStatus.active,
+        roles: [roleEnum],
         settings: UserSettings(),
         emergencyInfo: EmergencyInfo(),
       );
@@ -184,6 +313,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
+      final apiService = this.apiService ?? ApiService();
+      await apiService.logout(); // This clears the token from storage
       emit(AuthUnauthenticated());
     } catch (e) {
       emit(AuthError(e.toString()));
@@ -244,7 +375,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
       try {
         // Call the API to update user settings
-        final apiService = ApiService();
+        final apiService = this.apiService ?? ApiService();
         final response = await apiService.updateUserSettings(event.settings);
 
         // Update the user with the response from the API
@@ -281,6 +412,45 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             darkMode: currentState.user.settings.darkMode,
             emergencyTimeout: currentState.user.settings.emergencyTimeout,
           ),
+          emergencyInfo: currentState.user.emergencyInfo,
+        );
+
+        emit(AuthAuthenticated(updatedUser));
+      } catch (e) {
+        emit(AuthError(e.toString()));
+      }
+    }
+  }
+
+  // Update user profile
+  Future<void> _onAuthUpdateProfileRequested(
+    AuthUpdateProfileRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is AuthAuthenticated) {
+      emit(AuthLoading());
+      try {
+        // Call the API to update user profile
+        final apiService = this.apiService ?? ApiService();
+        final response = await apiService.updateProfile(
+          firstName: event.firstName,
+          lastName: event.lastName,
+          phone: event.phone,
+        );
+
+        // Update the user with the response from the API
+        final updatedUser = User(
+          id: currentState.user.id,
+          email: currentState.user.email,
+          phone: response['phone'],
+          firstName: response['firstName'],
+          lastName: response['lastName'],
+          profileImage: currentState.user.profileImage,
+          createdAt: currentState.user.createdAt,
+          status: currentState.user.status,
+          roles: currentState.user.roles,
+          settings: currentState.user.settings,
           emergencyInfo: currentState.user.emergencyInfo,
         );
 

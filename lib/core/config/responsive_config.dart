@@ -1,4 +1,3 @@
-/// Configuration centralisée des breakpoints et valeurs responsives
 import 'package:flutter/material.dart';
 
 class ResponsiveConfig {
@@ -71,7 +70,12 @@ class ResponsiveConfig {
   static const Duration animationDurationSlow = Duration(milliseconds: 500);
 
   // ===== Curves =====
-  static const animationCurve = Cubic(0.4, 0.0, 0.2, 1.0); // Material curve
+  static const Cubic animationCurve = Cubic(
+    0.4,
+    0.0,
+    0.2,
+    1.0,
+  ); // Material curve
 
   // ===== Max Widths =====
   static const double maxWidthPhone = 500;

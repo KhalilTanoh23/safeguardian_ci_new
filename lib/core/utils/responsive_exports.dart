@@ -1,2 +1,3 @@
-/// Export central pour tous les outils responsive
+library;
+
 export 'responsive_helper.dart';

@@ -22,6 +22,7 @@ android {
 
     tasks.withType<JavaCompile> {
         options.compilerArgs.addAll(listOf("-Xlint:-options"))
+        options.isWarnings = false
     }
 
     defaultConfig {

@@ -175,8 +175,8 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF6366F1).withOpacity(0.3),
-                const Color(0xFF8B5CF6).withOpacity(0.2),
+                const Color(0xFF6366F1).withValues(alpha: 0.3),
+                const Color(0xFF8B5CF6).withValues(alpha: 0.2),
                 Colors.transparent,
               ],
             ),
@@ -189,7 +189,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                 child: Icon(
                   Icons.cloud_upload_rounded,
                   size: 180,
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                 ),
               ),
               Positioned(
@@ -204,10 +204,10 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFF6366F1).withOpacity(0.5),
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                         ),
                       ),
                       child: const Row(
@@ -234,7 +234,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                     Text(
                       'Stockage chiffré + QR codes',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 12,
                         shadows: const [
                           Shadow(color: Colors.black45, blurRadius: 5),
@@ -277,7 +277,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.4),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.4),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
@@ -302,7 +302,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
+                  color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -322,7 +322,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
             child: LinearProgressIndicator(
               value: 0.45,
               minHeight: 10,
-              backgroundColor: Colors.white.withOpacity(0.3),
+              backgroundColor: Colors.white.withValues(alpha: 0.3),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ),
@@ -333,14 +333,14 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               Text(
                 '4.5 GB utilisés',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 13,
                 ),
               ),
               Text(
                 '10 GB disponibles',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 13,
                 ),
               ),
@@ -359,26 +359,26 @@ class _DocumentsScreenState extends State<DocumentsScreen>
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Rechercher un document...',
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
           prefixIcon: Icon(
             Icons.search_rounded,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, color: Colors.white),
                   onPressed: () => setState(() => _searchQuery = ''),
                 )
-              : Icon(Icons.tune_rounded, color: Colors.white.withOpacity(0.5)),
+              : Icon(Icons.tune_rounded, color: Colors.white.withValues(alpha: 0.5)),
           filled: true,
-          fillColor: const Color(0xFF1E293B).withOpacity(0.5),
+          fillColor: const Color(0xFF1E293B).withValues(alpha: 0.5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -433,9 +433,9 @@ class _DocumentsScreenState extends State<DocumentsScreen>
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
+        color: const Color(0xFF1E293B).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -443,7 +443,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -467,14 +467,14 @@ class _DocumentsScreenState extends State<DocumentsScreen>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
+        color: const Color(0xFF1E293B).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: TabBar(
         controller: _tabController,
         labelColor: Colors.white,
-        unselectedLabelColor: Colors.white.withOpacity(0.5),
+        unselectedLabelColor: Colors.white.withValues(alpha: 0.5),
         indicatorSize: TabBarIndicatorSize.label,
         indicator: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
@@ -507,12 +507,12 @@ class _DocumentsScreenState extends State<DocumentsScreen>
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withOpacity(0.5),
+          color: const Color(0xFF1E293B).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: doc['isLost']
                 ? const Color(0xFFF59E0B)
-                : Colors.white.withOpacity(0.1),
+                : Colors.white.withValues(alpha: 0.1),
             width: doc['isLost'] ? 2 : 1,
           ),
         ),
@@ -523,8 +523,8 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    doc['color'].withOpacity(0.3),
-                    doc['color'].withOpacity(0.1),
+                    doc['color'].withValues(alpha: 0.3),
+                    doc['color'].withValues(alpha: 0.1),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -555,7 +555,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3B82F6).withOpacity(0.2),
+                            color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
@@ -585,7 +585,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withOpacity(0.2),
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
@@ -614,7 +614,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                   Text(
                     doc['subtitle'],
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 13,
                     ),
                   ),
@@ -624,13 +624,13 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                       Icon(
                         Icons.calendar_today_rounded,
                         size: 12,
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${doc['date'].day}/${doc['date'].month}/${doc['date'].year}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                       ),
@@ -638,13 +638,13 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                       Icon(
                         Icons.storage_rounded,
                         size: 12,
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         doc['size'],
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                       ),
@@ -707,7 +707,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
           Icon(
             Icons.description_outlined,
             size: 120,
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -723,7 +723,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
             'Commencez à sécuriser vos documents\navec SafeGuardian CI',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 14,
             ),
           ),
@@ -748,7 +748,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -779,7 +779,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -835,16 +835,16 @@ class _DocumentsScreenState extends State<DocumentsScreen>
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -866,7 +866,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -875,7 +875,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 size: 16,
               ),
             ],
@@ -890,7 +890,7 @@ class _DocumentsScreenState extends State<DocumentsScreen>
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF6366F1).withOpacity(0.2),
+          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: const Color(0xFF6366F1)),
@@ -906,3 +906,4 @@ class _DocumentsScreenState extends State<DocumentsScreen>
     );
   }
 }
+

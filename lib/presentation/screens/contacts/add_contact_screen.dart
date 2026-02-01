@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../../../data/models/emergency_contact.dart';
+import 'package:safeguardian_ci_new/data/models/emergency_contact.dart';
+import 'package:safeguardian_ci_new/presentation/bloc/contacts_bloc/contacts_bloc.dart';
 
-/// 🔐 SafeGuardian CI - Ajout de Contact d'Urgence
+/// 🔐 SafeGuardian CI - Ajout/Modification de Contact d'Urgence
 /// Projet SILENTOPS - Équipe MIAGE
 /// Système d'alerte intelligent avec bracelet/bague IoT
 
@@ -21,13 +23,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
 
-  String? _selectedRelationship;
-  int? _selectedPriority;
-  bool _canSeeLiveLocation = true;
-  bool _canReceiveSMS = true;
-  bool _canReceivePush = true;
-  bool _isEmergencyService = false;
-
+  // 📝 Controllers
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -113,6 +109,14 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     },
   ];
 
+  // 📌 État du formulaire
+  String? _selectedRelationship;
+  int? _selectedPriority;
+  bool _canSeeLiveLocation = true;
+  bool _canReceiveSMS = true;
+  bool _canReceivePush = true;
+  bool _isEmergencyService = false;
+
   @override
   void initState() {
     super.initState();
@@ -126,6 +130,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
     _animController.forward();
 
+    // 🔄 Pré-remplir si modification
     if (widget.contact != null) {
       _nameCtrl.text = widget.contact!.name;
       _phoneCtrl.text = widget.contact!.phone;
@@ -133,6 +138,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
       _selectedRelationship = widget.contact!.relationship;
       _selectedPriority = widget.contact!.priority;
       _canSeeLiveLocation = widget.contact!.canSeeLiveLocation;
+      _canReceiveSMS = true; // Par défaut
+      _canReceivePush = true; // Par défaut
+      _isEmergencyService = widget.contact!.isVerified;
     }
   }
 
@@ -195,20 +203,21 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== APP BAR ==========
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withAlpha((255 * 0.3).toInt()),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withAlpha((255 * 0.1).toInt())),
         ),
       ),
       child: Row(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withAlpha((255 * 0.1).toInt()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -234,7 +243,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                 Text(
                   'SafeGuardian CI',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withAlpha((255 * 0.6).toInt()),
                     fontSize: 12,
                   ),
                 ),
@@ -243,7 +252,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withAlpha((255 * 0.1).toInt()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -256,6 +265,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== HERO SECTION ==========
   Widget _buildHero() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -266,7 +276,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.4),
+            color: const Color(0xFF6366F1).withAlpha((255 * 0.4).toInt()),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
@@ -277,7 +287,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.25),
+              color: Colors.white.withAlpha((255 * 0.25).toInt()),
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(
@@ -303,7 +313,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                 Text(
                   'Alerté automatiquement lors d\'une urgence détectée par votre bracelet/bague connecté(e)',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.95),
+                    color: Colors.white.withAlpha((255 * 0.95).toInt()),
                     fontSize: 13,
                     height: 1.4,
                   ),
@@ -316,6 +326,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== CATEGORIES ==========
   Widget _buildCategories() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,9 +342,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
+        color: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withAlpha((255 * 0.1).toInt())),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -342,7 +353,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: cat['color'].withOpacity(0.2),
+              color: cat['color'].withAlpha((255 * 0.2).toInt()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(cat['icon'], color: cat['color'], size: 22),
@@ -369,7 +380,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                         _selectedRelationship = rel['name'];
                         _isEmergencyService =
                             cat['name'] == 'Services d\'Urgence';
-                        if (_isEmergencyService) _canSeeLiveLocation = true;
+                        if (_isEmergencyService) {
+                          _canSeeLiveLocation = true;
+                        }
                       });
                     },
                     child: Container(
@@ -381,8 +394,8 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                         gradient: selected
                             ? LinearGradient(
                                 colors: [
-                                  cat['color'].withOpacity(0.6),
-                                  cat['color'].withOpacity(0.3),
+                                  cat['color'].withAlpha((255 * 0.6).toInt()),
+                                  cat['color'].withAlpha((255 * 0.3).toInt()),
                                 ],
                               )
                             : null,
@@ -425,6 +438,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== PRIORITIES ==========
   Widget _buildPriorities() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,9 +448,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF3B82F6).withOpacity(0.1),
+            color: const Color(0xFF3B82F6).withAlpha((255 * 0.1).toInt()),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFF3B82F6).withAlpha((255 * 0.3).toInt())),
           ),
           child: Row(
             children: [
@@ -472,19 +486,19 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                   gradient: selected
                       ? LinearGradient(
                           colors: [
-                            p['color'].withOpacity(0.3),
-                            p['color'].withOpacity(0.1),
+                            p['color'].withAlpha((255 * 0.3).toInt()),
+                            p['color'].withAlpha((255 * 0.1).toInt()),
                           ],
                         )
                       : null,
                   color: selected
                       ? null
-                      : const Color(0xFF1E293B).withOpacity(0.5),
+                      : const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: selected
                         ? p['color']
-                        : Colors.white.withOpacity(0.1),
+                        : Colors.white.withAlpha((255 * 0.1).toInt()),
                     width: selected ? 2 : 1,
                   ),
                 ),
@@ -493,7 +507,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: p['color'].withOpacity(0.2),
+                        color: p['color'].withAlpha((255 * 0.2).toInt()),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -526,7 +540,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: p['color'].withOpacity(0.2),
+                                  color: p['color'].withAlpha((255 * 0.2).toInt()),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -544,7 +558,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                           Text(
                             p['desc'],
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withAlpha((255 * 0.7).toInt()),
                               fontSize: 12,
                             ),
                           ),
@@ -552,7 +566,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                           Text(
                             '📡 ${p['tech']}',
                             style: TextStyle(
-                              color: p['color'].withOpacity(0.7),
+                              color: p['color'].withAlpha((255 * 0.7).toInt()),
                               fontSize: 10,
                               fontStyle: FontStyle.italic,
                             ),
@@ -570,6 +584,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== FORM ==========
   Widget _buildForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -592,8 +607,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
           type: TextInputType.phone,
           validator: (v) {
             if (v?.isEmpty ?? true) return 'Téléphone requis';
-            if (!RegExp(r'^\+?[0-9\s\-\(\)]+$').hasMatch(v!))
+            if (!RegExp(r'^\+?[0-9\s\-\(\)]+$').hasMatch(v!)) {
               return 'Format invalide';
+            }
             return null;
           },
         ),
@@ -609,6 +625,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== SETTINGS ==========
   Widget _buildSettings() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,9 +635,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.5),
+            color: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withAlpha((255 * 0.1).toInt())),
           ),
           child: Column(
             children: [
@@ -634,7 +651,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                     : (v) => setState(() => _canSeeLiveLocation = v),
                 const Color(0xFF3B82F6),
               ),
-              Divider(color: Colors.white.withOpacity(0.1), height: 28),
+              Divider(color: Colors.white.withAlpha((255 * 0.1).toInt()), height: 28),
               _switch(
                 Icons.sms_rounded,
                 'Alertes SMS',
@@ -643,7 +660,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
                 (v) => setState(() => _canReceiveSMS = v),
                 const Color(0xFF10B981),
               ),
-              Divider(color: Colors.white.withOpacity(0.1), height: 28),
+              Divider(color: Colors.white.withAlpha((255 * 0.1).toInt()), height: 28),
               _switch(
                 Icons.notifications_active_rounded,
                 'Push',
@@ -659,6 +676,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== ACTIONS ==========
   Widget _buildActions() {
     return Column(
       children: [
@@ -683,18 +701,22 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
               ),
               child: Container(
                 alignment: Alignment.center,
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.add_circle_rounded,
+                      widget.contact == null
+                          ? Icons.add_circle_rounded
+                          : Icons.edit_rounded,
                       color: Colors.white,
                       size: 24,
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Text(
-                      'Ajouter au réseau',
-                      style: TextStyle(
+                      widget.contact == null
+                          ? 'Ajouter au réseau'
+                          : 'Mettre à jour',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -717,6 +739,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 
+  // ========== HELPER WIDGETS ==========
   Widget _sectionTitle(String title, IconData icon) {
     return Row(
       children: [
@@ -757,7 +780,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withAlpha((255 * 0.9).toInt()),
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -772,11 +795,11 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
             prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
             hintText: hint,
             hintStyle: TextStyle(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withAlpha((255 * 0.3).toInt()),
               fontSize: 13,
             ),
             filled: true,
-            fillColor: const Color(0xFF1E293B).withOpacity(0.5),
+            fillColor: const Color(0xFF1E293B).withAlpha((255 * 0.5).toInt()),
             contentPadding: const EdgeInsets.symmetric(
               vertical: 16,
               horizontal: 16,
@@ -812,7 +835,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withAlpha((255 * 0.2).toInt()),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: color, size: 20),
@@ -833,20 +856,32 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withAlpha((255 * 0.6).toInt()),
                   fontSize: 11,
                 ),
               ),
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeColor: color),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeThumbColor: color,
+          inactiveThumbColor: Colors.grey,
+        ),
       ],
     );
   }
 
+  // ========== ACTIONS ==========
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez corriger les erreurs'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
       return;
     }
     if (_selectedRelationship == null || _selectedPriority == null) {
@@ -859,23 +894,32 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
       return;
     }
 
+    final color = _priorities.firstWhere(
+      (p) => p['level'] == _selectedPriority,
+    )['color'];
     final contact = EmergencyContact(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.contact?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       userId: 'current_user',
       name: _nameCtrl.text,
       relationship: _selectedRelationship!,
       phone: _phoneCtrl.text,
-      email: _emailCtrl.text,
+      email: _emailCtrl.text.isNotEmpty ? _emailCtrl.text : '',
       priority: _selectedPriority!,
-      color: _priorities.firstWhere(
-        (p) => p['level'] == _selectedPriority,
-      )['color'],
+      color: color,
       isVerified: _isEmergencyService,
       canSeeLiveLocation: _canSeeLiveLocation,
       lastAlert: null,
       responseTime: 'N/A',
       addedDate: DateTime.now(),
     );
+
+    if (widget.contact == null) {
+      context.read<ContactsBloc>().add(AddContact(contact));
+    } else {
+      context.read<ContactsBloc>().add(UpdateContact(contact));
+    }
     Navigator.pop(context, contact);
   }
 
@@ -892,9 +936,9 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
           ),
           body: MobileScanner(
             onDetect: (capture) {
-              for (final b in capture.barcodes) {
-                if (b.rawValue != null) {
-                  final data = b.rawValue!.split(':');
+              for (final barcode in capture.barcodes) {
+                if (barcode.rawValue != null) {
+                  final data = barcode.rawValue!.split(':');
                   if (data.length >= 3 && data[0] == 'SAFEGUARDIAN') {
                     setState(() {
                       _nameCtrl.text = data[1];
@@ -925,19 +969,57 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
       builder: (c) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'SafeGuardian CI',
-          style: TextStyle(color: Colors.white),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.help_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Aide SafeGuardian CI',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         content: const SingleChildScrollView(
-          child: Text(
-            '🔐 Système d\'alerte intelligent\n\n'
-            '• Contacts alertés par ordre de priorité\n'
-            '• Localisation GPS en temps réel\n'
-            '• Escalade automatique après 2 min\n'
-            '• Alerte communautaire (rayon 1km)\n\n'
-            'Integration bracelet/bague IoT',
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🔐 Système d\'alerte intelligent\n',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                '• Contacts alertés par ordre de priorité\n'
+                '• Localisation GPS en temps réel\n'
+                '• Escalade automatique après 2 min\n'
+                '• Alerte communautaire (rayon 1km)\n\n'
+                'Intégration bracelet/bague IoT',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ],
           ),
         ),
         actions: [
@@ -950,3 +1032,4 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen>
     );
   }
 }
+

@@ -127,4 +127,30 @@ class AppColors {
     'wallet': Color(0xFF795548),
     'other': Color(0xFF607D8B),
   };
+
+  // Couleurs douces SoftGuardian (fusionnées de SoftColors)
+  static const Color softPrimary = Color(0xFF7C9CB4); // Bleu doux apaisant
+  static const Color softPrimaryLight = Color(0xFFB8D4E8); // Bleu clair
+  static const Color softPrimaryDark = Color(0xFF5A7A92); // Bleu profond
+  static const Color softSecondary = Color(0xFFA8C5D1); // Bleu-gris soft
+  static const Color softAccent = Color(0xFFD4A574); // Beige doré doux
+
+  static const Color softBackground = Color(0xFFF5F7FA); // Blanc cassé
+  static const Color softSurface = Color(0xFFFFFFFF); // Blanc pur
+  static const Color softSurfaceLight = Color(0xFFFAFBFC); // Très léger
+
+  static const Color softSuccess = Color(0xFF8FBC8F); // Vert sauge
+  static const Color softWarning = Color(0xFFE8C4A1); // Pêche doux
+  static const Color softError = Color(0xFFCF9B9B); // Rouge rosé
+  static const Color softInfo = Color(0xFF9BB5CE); // Bleu info
+
+  static const Color softTextPrimary = Color(0xFF2C3E50); // Bleu marine doux
+  static const Color softTextSecondary = Color(0xFF6B7C93); // Gris bleuté
+  static const Color softTextTertiary = Color(0xFF9EAEC4); // Gris clair
+
+  static const Color softBorder = Color(0xFFE1E8ED);
+  static const Color softDivider = Color(0xFFEEF2F6);
+
+  static const Color softOnline = Color(0xFF8FBC8F);
+  static const Color softOffline = Color(0xFFC4C4C4);
 }

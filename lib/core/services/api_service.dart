@@ -8,7 +8,7 @@ import '../../data/models/item.dart';
 
 class ApiService {
   static const String baseUrl =
-      'http://localhost:8000/api'; // Changez selon votre configuration
+      'http://10.0.2.2:8000'; // Point vers index_mock.php - 10.0.2.2 pour émulateur Android
   static const String tokenKey = 'auth_token';
 
   final http.Client _client;
@@ -68,7 +68,7 @@ class ApiService {
     required String phone,
   }) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/auth/register'),
+      Uri.parse('$baseUrl/api/auth/register'),
       headers: await _getHeaders(auth: false),
       body: json.encode({
         'email': email,
@@ -79,7 +79,7 @@ class ApiService {
       }),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       final data = json.decode(response.body);
       await setToken(data['token']);
       return data;
@@ -90,7 +90,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/auth/login'),
+      Uri.parse('$baseUrl/api/auth/login'),
       headers: await _getHeaders(auth: false),
       body: json.encode({'email': email, 'password': password}),
     );
@@ -106,8 +106,30 @@ class ApiService {
 
   Future<Map<String, dynamic>> getProfile() async {
     final response = await _client.get(
+      Uri.parse('$baseUrl/api/auth/profile'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw _handleError(response);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    required String firstName,
+    required String lastName,
+    String? phone,
+  }) async {
+    final response = await _client.put(
       Uri.parse('$baseUrl/auth/profile'),
       headers: await _getHeaders(),
+      body: json.encode({
+        'first_name': firstName,
+        'last_name': lastName,
+        if (phone != null) 'phone': phone,
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -140,7 +162,7 @@ class ApiService {
   // Contacts d'urgence
   Future<List<EmergencyContact>> getContacts() async {
     final response = await _client.get(
-      Uri.parse('$baseUrl/contacts'),
+      Uri.parse('$baseUrl/api/contacts'),
       headers: await _getHeaders(),
     );
 
@@ -154,7 +176,7 @@ class ApiService {
 
   Future<EmergencyContact> addContact(EmergencyContact contact) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/contacts'),
+      Uri.parse('$baseUrl/api/contacts'),
       headers: await _getHeaders(),
       body: json.encode({
         'name': contact.name,
@@ -190,7 +212,7 @@ class ApiService {
 
   Future<void> updateContact(EmergencyContact contact) async {
     final response = await _client.put(
-      Uri.parse('$baseUrl/contacts/${contact.id}'),
+      Uri.parse('$baseUrl/api/contacts/${contact.id}'),
       headers: await _getHeaders(),
       body: json.encode({
         'name': contact.name,
@@ -208,7 +230,7 @@ class ApiService {
 
   Future<void> deleteContact(String contactId) async {
     final response = await _client.delete(
-      Uri.parse('$baseUrl/contacts/$contactId'),
+      Uri.parse('$baseUrl/api/contacts/$contactId'),
       headers: await _getHeaders(),
     );
 
@@ -220,7 +242,7 @@ class ApiService {
   // Alertes
   Future<List<EmergencyAlert>> getAlerts() async {
     final response = await _client.get(
-      Uri.parse('$baseUrl/alerts'),
+      Uri.parse('$baseUrl/api/alerts'),
       headers: await _getHeaders(),
     );
 
@@ -238,7 +260,7 @@ class ApiService {
     String? message,
   }) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/alerts'),
+      Uri.parse('$baseUrl/api/alerts'),
       headers: await _getHeaders(),
       body: json.encode({
         'latitude': latitude,
@@ -264,7 +286,7 @@ class ApiService {
 
   Future<void> updateAlertStatus(String alertId, AlertStatus status) async {
     final response = await _client.put(
-      Uri.parse('$baseUrl/alerts/$alertId'),
+      Uri.parse('$baseUrl/api/alerts/$alertId'),
       headers: await _getHeaders(),
       body: json.encode({'status': status.name}),
     );
@@ -277,7 +299,7 @@ class ApiService {
   // Objets
   Future<List<ValuedItem>> getItems() async {
     final response = await _client.get(
-      Uri.parse('$baseUrl/items'),
+      Uri.parse('$baseUrl/api/items'),
       headers: await _getHeaders(),
     );
 
@@ -291,7 +313,7 @@ class ApiService {
 
   Future<ValuedItem> addItem(ValuedItem item) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/items'),
+      Uri.parse('$baseUrl/api/items'),
       headers: await _getHeaders(),
       body: json.encode({
         'name': item.name,
@@ -312,7 +334,7 @@ class ApiService {
 
   Future<void> updateItem(ValuedItem item) async {
     final response = await _client.put(
-      Uri.parse('$baseUrl/items/${item.id}'),
+      Uri.parse('$baseUrl/api/items/${item.id}'),
       headers: await _getHeaders(),
       body: json.encode({
         'name': item.name,
@@ -331,7 +353,7 @@ class ApiService {
 
   Future<void> deleteItem(String itemId) async {
     final response = await _client.delete(
-      Uri.parse('$baseUrl/items/$itemId'),
+      Uri.parse('$baseUrl/api/items/$itemId'),
       headers: await _getHeaders(),
     );
 
@@ -342,7 +364,7 @@ class ApiService {
 
   Future<void> markItemAsLost(String itemId, bool isLost) async {
     final response = await _client.put(
-      Uri.parse('$baseUrl/items/$itemId'),
+      Uri.parse('$baseUrl/api/items/$itemId'),
       headers: await _getHeaders(),
       body: json.encode({'isLost': isLost}),
     );
@@ -355,7 +377,7 @@ class ApiService {
   // Documents (à implémenter selon les besoins)
   Future<List<Map<String, dynamic>>> getDocuments() async {
     final response = await _client.get(
-      Uri.parse('$baseUrl/documents'),
+      Uri.parse('$baseUrl/api/documents'),
       headers: await _getHeaders(),
     );
 
@@ -370,7 +392,7 @@ class ApiService {
     Map<String, dynamic> document,
   ) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/documents'),
+      Uri.parse('$baseUrl/api/documents'),
       headers: await _getHeaders(),
       body: json.encode(document),
     );
@@ -384,7 +406,7 @@ class ApiService {
 
   Future<void> deleteDocument(String documentId) async {
     final response = await _client.delete(
-      Uri.parse('$baseUrl/documents/$documentId'),
+      Uri.parse('$baseUrl/api/documents/$documentId'),
       headers: await _getHeaders(),
     );
 

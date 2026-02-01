@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║          POINT D'ENTRÉE API SAFEGUARDIAN CI                 ║
@@ -24,17 +25,17 @@ $envFile = __DIR__ . '/.env';
 if (file_exists($envFile)) {
     // Charger le fichier ligne par ligne (ignorer les lignes vides/commentaires)
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    
+
     // Itérer sur chaque ligne du fichier .env
     foreach ($lines as $line) {
         // Ignorer les commentaires (lignes commençant par #)
         if (strpos($line, '#') === 0 || strpos($line, '=') === false) {
             continue;
         }
-        
+
         // Diviser la ligne en clé et valeur (ex: "KEY=value" -> ["KEY", "value"])
         list($key, $value) = explode('=', $line, 2);
-        
+
         // Stocker dans $_ENV après avoir trimé les espaces inutiles
         $_ENV[trim($key)] = trim($value);
     }
@@ -48,29 +49,26 @@ if (file_exists($envFile)) {
 date_default_timezone_set('UTC');
 
 // ═══════════════════════════════════════════════════════════════
-// 3. CHARGER LA CONFIGURATION CORS SÉCURISÉE
+// 3. CHARGER LA CONFIGURATION DE SÉCURITÉ COMPLÈTE
 // ═══════════════════════════════════════════════════════════════
 
-// Inclure le fichier de configuration CORS (gestion des origines autorisées)
-require_once __DIR__ . '/config/cors.php';
+require_once __DIR__ . '/config/SecurityConfig.php';
+
+// Initialiser tous les headers de sécurité
+SecurityConfig::initializeHeaders();
+
+// Configurer CORS de manière sécurisée
+SecurityConfig::setupCORS();
 
 // ═══════════════════════════════════════════════════════════════
-// 4. APPLIQUER LES HEADERS DE SÉCURITÉ CORS
+// 4. VÉRIFIER LES ATTAQUES BASIQUES
 // ═══════════════════════════════════════════════════════════════
 
-// Configurer les headers CORS selon la whitelist d'origines autorisées
-CORSConfig::configureHeaders();
-
-// ═══════════════════════════════════════════════════════════════
-// 5. CONFIGURER LES HEADERS GÉNÉRAUX
-// ═══════════════════════════════════════════════════════════════
-
-// Définir que toutes les réponses sont en JSON avec encodage UTF-8
-header('Content-Type: application/json;charset=utf-8', true);
-
-// ═══════════════════════════════════════════════════════════════
-// 6. CHARGER LE SYSTÈME DE ROUTAGE
-// ═══════════════════════════════════════════════════════════════
+// Vérifier les tentatives d'injection SQL dans l'URL
+if (preg_match('/(union|select|insert|delete|update|drop|create|alter|exec|script|javascript|eval)/i', $_SERVER['QUERY_STRING'] ?? '')) {
+    http_response_code(403);
+    die(json_encode(['error' => 'Requête suspecte détectée']));
+}
 
 // Inclure le fichier qui gère toutes les routes API
 require_once __DIR__ . '/routes/api.php';

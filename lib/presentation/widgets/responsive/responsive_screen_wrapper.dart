@@ -17,7 +17,7 @@ class ResponsiveScreen extends StatelessWidget {
   final Widget? bottomNavigationBar;
 
   const ResponsiveScreen({
-    Key? key,
+    super.key,
     required this.title,
     required this.body,
     this.actions,
@@ -30,7 +30,7 @@ class ResponsiveScreen extends StatelessWidget {
     this.showAppBar = true,
     this.bodyPadding,
     this.bottomNavigationBar,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,14 +77,14 @@ class ResponsiveCard extends StatelessWidget {
   final BorderRadius? borderRadius;
 
   const ResponsiveCard({
-    Key? key,
+    super.key,
     required this.child,
     this.padding,
     this.onTap,
     this.elevation,
     this.color,
     this.borderRadius,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +120,7 @@ class ResponsiveButton extends StatelessWidget {
   final TextStyle? textStyle;
 
   const ResponsiveButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.isLoading = false,
@@ -129,7 +129,7 @@ class ResponsiveButton extends StatelessWidget {
     this.width,
     this.height,
     this.textStyle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,13 +212,13 @@ class ResponsiveSection extends StatelessWidget {
   final EdgeInsets? padding;
 
   const ResponsiveSection({
-    Key? key,
+    super.key,
     required this.title,
     required this.child,
     this.onSeeMore,
     this.showSeeMore = false,
     this.padding,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -275,7 +275,7 @@ class ResponsiveListView extends StatelessWidget {
   final MainAxisSize mainAxisSize;
 
   const ResponsiveListView({
-    Key? key,
+    super.key,
     required this.children,
     this.padding,
     this.physics,
@@ -284,7 +284,7 @@ class ResponsiveListView extends StatelessWidget {
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.crossAxisAlignment = CrossAxisAlignment.center,
     this.mainAxisSize = MainAxisSize.max,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +332,7 @@ class ResponsiveInput extends StatelessWidget {
   final bool enabled;
 
   const ResponsiveInput({
-    Key? key,
+    super.key,
     required this.label,
     required this.hint,
     this.controller,
@@ -345,7 +345,7 @@ class ResponsiveInput extends StatelessWidget {
     this.onChanged,
     this.validator,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

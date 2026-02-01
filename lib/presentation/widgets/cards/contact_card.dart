@@ -1,6 +1,7 @@
 // lib/presentation/widgets/cards/contact_card.dart
 import 'package:flutter/material.dart';
 import 'package:safeguardian_ci_new/data/models/contact.dart';
+import 'package:safeguardian_ci_new/presentation/theme/typography.dart';
 
 class ContactCard extends StatelessWidget {
   final Contact contact;
@@ -33,7 +34,7 @@ class ContactCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withOpacity(0.06),
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -69,7 +70,7 @@ class ContactCard extends StatelessWidget {
                                 (contact.isEmergencyContact
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF3B82F6))
-                                    .withOpacity(0.3),
+                                    .withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -101,7 +102,9 @@ class ContactCard extends StatelessWidget {
                             border: Border.all(color: Colors.white, width: 3),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFF59E0B).withOpacity(0.4),
+                                color: const Color(
+                                  0xFFF59E0B,
+                                ).withValues(alpha: 0.4),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -129,7 +132,9 @@ class ContactCard extends StatelessWidget {
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF10B981).withOpacity(0.4),
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.4),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -156,12 +161,11 @@ class ContactCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               contact.name,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF1E3A8A),
-                                    fontSize: 17,
-                                  ),
+                              style: AppTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1E3A8A),
+                                fontSize: 17,
+                              ),
                             ),
                           ),
                           if (contact.isEmergencyContact)
@@ -200,7 +204,9 @@ class ContactCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withOpacity(0.1),
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -225,11 +231,10 @@ class ContactCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             contact.phone,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: const Color(0xFF1E3A8A),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: const Color(0xFF1E3A8A),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -246,11 +251,10 @@ class ContactCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 contact.email,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -311,7 +315,7 @@ class ContactCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1E3A8A).withOpacity(0.2),
+              color: const Color(0xFF1E3A8A).withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

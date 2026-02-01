@@ -1,0 +1,23 @@
+# Configuration pour SafeGuardian Admin
+# Ajouter cette config dans httpd.conf ou dans un fichier inclus
+
+# Alias pour /admin pointant vers backend/admin
+Alias /admin "C:/Users/Msi/safeguardian_ci_new/backend/admin"
+
+<Directory "C:/Users/Msi/safeguardian_ci_new/backend/admin">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+    
+    # Activer mod_rewrite si nécessaire
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+    </IfModule>
+</Directory>
+
+# Pour les APIs
+<Directory "C:/Users/Msi/safeguardian_ci_new/backend/admin/api">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>

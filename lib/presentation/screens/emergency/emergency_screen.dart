@@ -13,6 +13,7 @@ import 'package:safeguardian_ci_new/data/models/contact.dart';
 import 'package:safeguardian_ci_new/data/repositories/contact_repository.dart';
 import 'package:safeguardian_ci_new/data/repositories/alert_repository.dart';
 import 'package:safeguardian_ci_new/presentation/theme/colors.dart';
+import 'package:safeguardian_ci_new/presentation/theme/typography.dart';
 import 'package:safeguardian_ci_new/core/constants/routes.dart';
 import 'package:safeguardian_ci_new/presentation/screens/emergency/alert_map_screen.dart';
 import 'package:safeguardian_ci_new/core/services/location_service.dart'
@@ -159,18 +160,16 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                 const SizedBox(height: 20),
                 Text(
                   'Bouton d\'Urgence',
-                  style:
-                      Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ) ??
-                      const TextStyle(fontWeight: FontWeight.bold),
+                  style: AppTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Appuyez pour envoyer une alerte à tous vos contacts '
                   'et aux autorités si nécessaire.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: AppTypography.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -210,7 +209,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
               children: [
                 Text(
                   'Contacts d\'Urgence',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -241,7 +240,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
               children: [
                 Text(
                   'Que faire en cas d\'urgence?',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -265,7 +264,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                   children: [
                     Text(
                       'Historique des Alertes',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -529,21 +528,15 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
             children: [
               Text(
                 'ALERTE D\'URGENCE ACTIVE',
-                style:
-                    Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.emergencyRed,
-                      fontWeight: FontWeight.bold,
-                    ) ??
-                    TextStyle(
-                      color: AppColors.emergencyRed,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
+                style: AppTypography.titleLarge.copyWith(
+                  color: AppColors.emergencyRed,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
                 'Vos contacts ont été notifiés',
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: AppTypography.bodyMedium,
               ),
               const SizedBox(height: 20),
               CircularCountDownTimer(
@@ -562,7 +555,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
               const SizedBox(height: 10),
               Text(
                 'Alerte communautaire dans',
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: AppTypography.bodyMedium,
               ),
               Text(
                 '${_countdownSeconds ~/ 60}:${(_countdownSeconds % 60).toString().padLeft(2, '0')}',
@@ -776,6 +769,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
         if (await canLaunchUrl(url)) {
           await launchUrl(url);
         } else {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Impossible d\'ouvrir Google Maps'),
@@ -784,6 +778,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
           );
         }
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Localisation non disponible'),
@@ -792,6 +787,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur lors de l\'obtention de la localisation: $e'),
@@ -860,6 +856,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Impossible de lancer l\'appel téléphonique'),

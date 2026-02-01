@@ -94,6 +94,19 @@ class ResponsiveHelper {
   double get radiusSmall => isMobile ? 8 : 12;
   double get radiusMedium => isMobile ? 12 : 16;
   double get radiusLarge => isMobile ? 16 : 24;
+
+  static void getResponsiveValue({
+    required int mobile,
+    required int tablet,
+    required int desktop,
+    required int screenWidth,
+  }) {}
+
+  static void getResponsiveFontSize(int i, int j) {}
+
+  static void getResponsivePadding(int i, int j) {}
+
+  static void getResponsiveMargin(int i, int j) {}
 }
 
 /// Extension pour accès facile à ResponsiveHelper

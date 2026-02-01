@@ -2,525 +2,561 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
+import 'package:safeguardian_ci_new/data/models/contact.dart';
 import 'package:safeguardian_ci_new/presentation/bloc/auth_bloc/auth_bloc.dart';
 import 'package:safeguardian_ci_new/presentation/bloc/emergency_bloc/emergency_bloc.dart';
 import 'package:safeguardian_ci_new/presentation/widgets/cards/alert_card.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/cards/contact_card.dart';
 import 'package:safeguardian_ci_new/presentation/widgets/cards/item_card.dart';
 import 'package:safeguardian_ci_new/core/services/bluetooth_service.dart';
 import 'package:safeguardian_ci_new/core/constants/routes.dart';
-import 'package:safeguardian_ci_new/presentation/screens/contacts/contacts_screen.dart'
-    as contacts_screen;
-import 'package:safeguardian_ci_new/presentation/screens/items/items_screen.dart';
-import 'package:safeguardian_ci_new/presentation/screens/documents/documents_screen.dart';
 import 'package:safeguardian_ci_new/presentation/screens/main/qr_scanner_screen.dart';
 import 'package:safeguardian_ci_new/data/models/alert.dart';
-import 'package:safeguardian_ci_new/data/models/emergency_contact.dart';
 import 'package:safeguardian_ci_new/data/models/item.dart';
 import 'package:safeguardian_ci_new/data/repositories/alert_repository.dart';
 import 'package:safeguardian_ci_new/data/repositories/contact_repository.dart';
 import 'package:safeguardian_ci_new/data/repositories/item_repository.dart';
-import 'package:safeguardian_ci_new/presentation/theme/colors.dart';
-import 'package:safeguardian_ci_new/presentation/theme/typography.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/navigation/silentops_navbar.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/navigation/silentops_appbar.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/emergency/sos_button.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/cards/feature_card.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/cards/status_card.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/cards/stat_card.dart';
-import 'package:safeguardian_ci_new/presentation/widgets/cards/activity_card.dart';
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class SafeGuardianUltimateDashboard extends StatefulWidget {
+  const SafeGuardianUltimateDashboard({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<SafeGuardianUltimateDashboard> createState() =>
+      _SafeGuardianUltimateDashboardState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
+class _SafeGuardianUltimateDashboardState
+    extends State<SafeGuardianUltimateDashboard>
     with TickerProviderStateMixin {
-  int _selectedIndex = 0;
-  final PageController _pageController = PageController();
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-  bool _isInitialized = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Real data loaded from repositories
+  // Animation Controllers
+  late AnimationController _pulseController;
+  late AnimationController _fadeController;
+  late AnimationController _heartbeatController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _heartbeatAnimation;
+
+  // Map & Location
+  GoogleMapController? _mapController;
+  Position? _currentPosition;
+  bool _isLoadingLocation = true;
+  Timer? _locationTimer;
+  Set<Circle> _safetyCircles = {};
+
+  // Data
   List<EmergencyAlert> _recentAlerts = [];
   List<Contact> _contacts = [];
   List<ValuedItem> _recentItems = [];
-  bool _isLoadingData = true;
 
-  final List<Map<String, dynamic>> _recentActivities = [
-    {
-      'type': 'alert',
-      'title': 'Alerte résolue',
-      'description': 'Alerte de sécurité résolue',
-      'time': 'Il y a 5 min',
-      'icon': Icons.check_circle_rounded,
-      'color': AppColors.successGreen,
-    },
-    {
-      'type': 'contact',
-      'title': 'Contact ajouté',
-      'description': 'Marie Yvann ajoutée',
-      'time': 'Il y a 2h',
-      'icon': Icons.person_add_rounded,
-      'color': AppColors.primary,
-    },
-    {
-      'type': 'device',
-      'title': 'Bracelet synchronisé',
-      'description': 'Dernière synchro réussie',
-      'time': 'Il y a 4h',
-      'icon': Icons.watch_rounded,
-      'color': AppColors.secondary,
-    },
-  ];
-
-  final List<Map<String, dynamic>> _features = [
-    {
-      'icon': Icons.location_on_rounded,
-      'title': 'Localisation',
-      'description': 'En temps réel',
-      'color': AppColors.primary,
-      'route': AppRoutes.contacts,
-    },
-    {
-      'icon': Icons.qr_code_rounded,
-      'title': 'QR Code',
-      'description': 'Vos documents',
-      'color': AppColors.warningYellow,
-      'route': null,
-      'action': 'scanQR',
-    },
-    {
-      'icon': Icons.verified_user_rounded,
-      'title': 'Bracelet',
-      'description': 'Connecté & Sécurisé',
-      'color': AppColors.successGreen,
-      'route': AppRoutes.pairDevice,
-    },
-    {
-      'icon': Icons.shield_rounded,
-      'title': 'Mode discret',
-      'description': 'Activé',
-      'color': AppColors.secondary,
-      'route': null,
-      'action': 'toggleDiscreet',
-    },
-  ];
+  // Metrics
+  final int _protectedDays = 15;
+  int _totalAlertsSent = 0;
+  final int _responseTime = 45;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+    _loadDashboardData();
+    _getCurrentLocation();
+    _startLocationMonitoring();
+  }
+
+  void _setupAnimations() {
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _heartbeatController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat();
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _loadDashboardData();
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() => _isInitialized = true);
-      }
+    _heartbeatAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.15), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.1), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 40),
+    ]).animate(_heartbeatController);
+
+    _fadeController.forward();
+  }
+
+  void _startLocationMonitoring() {
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _getCurrentLocation();
     });
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _currentPosition = position;
+            _isLoadingLocation = false;
+            _updateSafetyCircles(position);
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    }
+  }
+
+  void _updateSafetyCircles(Position position) {
+    _safetyCircles = {
+      Circle(
+        circleId: const CircleId('immediate'),
+        center: LatLng(position.latitude, position.longitude),
+        radius: 500,
+        fillColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+        strokeColor: const Color(0xFF10B981),
+        strokeWidth: 2,
+      ),
+      Circle(
+        circleId: const CircleId('community'),
+        center: LatLng(position.latitude, position.longitude),
+        radius: 1000,
+        fillColor: const Color(0xFF6366F1).withValues(alpha: 0.08),
+        strokeColor: const Color(0xFF6366F1),
+        strokeWidth: 1,
+      ),
+    };
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
-    _pageController.dispose();
+    _fadeController.dispose();
+    _heartbeatController.dispose();
+    _mapController?.dispose();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bluetoothService = Provider.of<BluetoothService>(context);
-    final authBloc = BlocProvider.of<AuthBloc>(context);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: Stack(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF8FAFC),
+      drawer: _buildEnhancedDrawer(context),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Stack(
+          children: [
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                _buildSliverAppBar(context, bluetoothService),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 24),
+                        _buildEmergencyStatusBanner(bluetoothService),
+                        const SizedBox(height: 24),
+                        _buildSecurityMetricsCard(),
+                        const SizedBox(height: 24),
+                        _buildLiveMap(),
+                        const SizedBox(height: 28),
+                        _buildQuickActionsGrid(),
+                        const SizedBox(height: 32),
+                        if (_contacts.isNotEmpty) ...[
+                          _buildSectionHeader(
+                            'Contacts de Confiance',
+                            Icons.shield_outlined,
+                            '${_contacts.length} actifs',
+                            () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.contacts,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ..._contacts
+                              .take(3)
+                              .map(
+                                (contact) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _buildPremiumContactCard(contact),
+                                ),
+                              ),
+                          const SizedBox(height: 28),
+                        ],
+                        if (_recentAlerts.isNotEmpty) ...[
+                          _buildSectionHeader(
+                            'Alertes Récentes',
+                            Icons.history_rounded,
+                            '${_recentAlerts.length} ce mois',
+                            () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.alertHistory,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ..._recentAlerts
+                              .take(2)
+                              .map(
+                                (alert) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: AlertCard(alert: alert),
+                                ),
+                              ),
+                          const SizedBox(height: 28),
+                        ],
+                        if (_recentItems.isNotEmpty) ...[
+                          _buildSectionHeader(
+                            'Objets & Documents',
+                            Icons.inventory_2_outlined,
+                            '${_recentItems.length} protégés',
+                            () => Navigator.pushNamed(context, AppRoutes.items),
+                          ),
+                          const SizedBox(height: 16),
+                          ..._recentItems
+                              .take(2)
+                              .map(
+                                (item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ItemCard(item: item),
+                                ),
+                              ),
+                        ],
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            _buildSOSMultiFAB(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============ SLIVER APP BAR (AMÉLIORÉ) ============
+  Widget _buildSliverAppBar(BuildContext context, BluetoothService bluetooth) {
+    return SliverAppBar(
+      expandedHeight: 180,
+      floating: false,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFA855F7)],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 70, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (context, state) {
+                      if (state is AuthAuthenticated) {
+                        return Row(
+                          children: [
+                            ScaleTransition(
+                              scale: _heartbeatAnimation,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: bluetooth.isConnected
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          (bluetooth.isConnected
+                                                  ? const Color(0xFF10B981)
+                                                  : const Color(0xFFEF4444))
+                                              .withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${_getGreeting()}, ${state.user.firstName}',
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    bluetooth.isConnected
+                                        ? 'Protection active • $_protectedDays jours'
+                                        : 'Connexion bracelet requise',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return const SizedBox();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.menu_rounded, size: 22, color: Colors.white),
+        ),
+        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+      ),
+      actions: [
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.qr_code_scanner_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+          onPressed: () => _scanQRCode(context),
+        ),
+        Stack(
+          children: [
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.alertHistory),
+            ),
+            if (_recentAlerts.isNotEmpty)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Text(
+                    '${_recentAlerts.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+      ],
+    );
+  }
+
+  // ============ EMERGENCY STATUS BANNER (AMÉLIORÉ) ============
+  Widget _buildEmergencyStatusBanner(BluetoothService bluetooth) {
+    final isConnected = bluetooth.isConnected;
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isConnected
+              ? [const Color(0xFF10B981), const Color(0xFF059669)]
+              : [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color:
+                (isConnected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444))
+                    .withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          // Fond avec éléments décoratifs subtils
-          _buildBackground(),
-
-          // Contenu principal
-          SafeArea(
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              isConnected
+                  ? Icons.verified_user_rounded
+                  : Icons.warning_amber_rounded,
+              color: Colors.white,
+              size: 36,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // AppBar moderne SILENTOPS
-                if (_selectedIndex == 0) _buildSilentOpsAppBar(context),
-
-                // Contenu des pages
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: (index) =>
-                        setState(() => _selectedIndex = index),
-                    children: [
-                      _buildDashboardPage(bluetoothService),
-                      const contacts_screen.EmergencyContactsScreen(),
-                      const ItemsScreen(),
-                      const DocumentsScreen(),
-                    ],
+                Text(
+                  isConnected ? 'SYSTÈME OPÉRATIONNEL' : 'ATTENTION REQUISE',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isConnected
+                      ? 'Bracelet connecté • Protection active • Réponse ${_responseTime}s'
+                      : 'Connectez votre bracelet pour activer la protection',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.95),
+                    height: 1.4,
                   ),
                 ),
               ],
             ),
           ),
-
-          // Bouton SOS flottant
-          Positioned(
-            bottom: 100,
-            right: 24,
-            child: SOSButton(
-              pulseAnimation: _pulseAnimation,
-              onPressed: () => _handleEmergency(context),
-            ),
-          ),
-
-          // Navigation bar
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: SilentOpsNavBar(
-              currentIndex: _selectedIndex,
-              onItemSelected: (index) {
-                setState(() => _selectedIndex = index);
-                _pageController.jumpToPage(index);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBackground() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.backgroundDark, Color(0xFF0F172A)],
-          stops: [0.1, 0.9],
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Éléments décoratifs SILENTOPS
-          Positioned(
-            top: 50,
-            left: 20,
-            child: Opacity(
-              opacity: 0.05,
-              child: Text(
-                'SILENT',
-                style: AppTypography.displayLarge.copyWith(
+          if (!isConnected)
+            IconButton(
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.pairDevice),
+              icon: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.settings_outlined,
                   color: Colors.white,
-                  fontWeight: FontWeight.w900,
+                  size: 22,
                 ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 100,
-            right: 20,
-            child: Opacity(
-              opacity: 0.05,
-              child: Text(
-                'OPS',
-                style: AppTypography.displayLarge.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSilentOpsAppBar(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          return SilentOpsAppBar(
-            userName: "${state.user.firstName} ${state.user.lastName}",
-            userEmail: state.user.email,
-            onNotificationTap: () => _goToAlerts(context),
-            onQRCodeTap: () => _scanQRCode(context),
-            onMenuTap: () =>
-                _showMenuSheet(context, BlocProvider.of<AuthBloc>(context)),
-          );
-        }
-        return const SizedBox();
-      },
-    );
-  }
-
-  Widget _buildDashboardPage(BluetoothService bluetoothService) {
-    return AnimatedOpacity(
-      opacity: _isInitialized ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 500),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-        children: [
-          // Section de bienvenue
-          _buildWelcomeSection(),
-          const SizedBox(height: 24),
-
-          // Carte de statut
-          StatusCard(
-            isConnected: bluetoothService.isConnected,
-            batteryLevel: 75,
-            lastSync: DateTime.now().subtract(const Duration(minutes: 5)),
-            onConnectPressed: () => _pairDevice(context),
-          ),
-          const SizedBox(height: 24),
-
-          // Carrousel des fonctionnalités
-          _buildFeaturesSection(),
-          const SizedBox(height: 24),
-
-          // Grille de statistiques
-          _buildStatsGrid(),
-          const SizedBox(height: 24),
-
-          // Activités récentes
-          _buildRecentActivities(),
-          const SizedBox(height: 24),
-
-          // Alertes récentes
-          if (_recentAlerts.isNotEmpty) ...[
-            _buildSectionHeader(
-              'Alertes récentes',
-              Icons.warning_amber_rounded,
-              AppColors.errorRed,
-              () => _goToAlerts(context),
-            ),
-            const SizedBox(height: 16),
-            ..._recentAlerts.map(
-              (alert) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: AlertCard(alert: alert),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          // Contacts d'urgence
-          if (_contacts.isNotEmpty) ...[
-            _buildSectionHeader(
-              'Contacts d\'urgence',
-              Icons.people_rounded,
-              AppColors.primary,
-              () => _goToContacts(context),
-            ),
-            const SizedBox(height: 16),
-            ..._contacts
-                .take(2)
-                .map(
-                  (contact) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ContactCard(contact: contact),
-                  ),
-                ),
-            const SizedBox(height: 24),
-          ],
-
-          // Objets protégés
-          if (_recentItems.isNotEmpty) ...[
-            _buildSectionHeader(
-              'Objets protégés',
-              Icons.inventory_2_rounded,
-              AppColors.successGreen,
-              () => _goToItems(context),
-            ),
-            const SizedBox(height: 16),
-            ..._recentItems
-                .take(2)
-                .map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ItemCard(item: item),
-                  ),
-                ),
-          ],
-
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWelcomeSection() {
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? 'Bonjour'
-        : hour < 18
-        ? 'Bon après-midi'
-        : 'Bonsoir';
-    final emoji = hour < 12
-        ? '☀️'
-        : hour < 18
-        ? '⛅'
-        : '🌙';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-          ),
-          child: Text(
-            '$emoji $greeting',
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Votre sécurité, notre mission.',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'SafeGuardian-CI vous protège discrètement et efficacement.',
-          style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeaturesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            'Fonctionnalités',
-            style: AppTypography.titleLarge.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 140,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _features.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final feature = _features[index];
-              return FeatureCard(
-                icon: feature['icon'] as IconData,
-                title: feature['title'] as String,
-                description: feature['description'] as String,
-                color: feature['color'] as Color,
-                onTap: () {
-                  if (feature['route'] != null) {
-                    Navigator.pushNamed(context, feature['route'] as String);
-                  } else if (feature['action'] == 'scanQR') {
-                    _scanQRCode(context);
-                  } else if (feature['action'] == 'toggleDiscreet') {
-                    _toggleDiscreetMode(context);
-                  }
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsGrid() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: StatCard(
-                icon: Icons.contacts_rounded,
-                value: '${_contacts.length}',
-                label: 'Contacts',
-                color: AppColors.primary,
-                onTap: () => _goToContacts(context),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatCard(
-                icon: Icons.inventory_2_rounded,
-                value: '${_recentItems.length}',
-                label: 'Objets',
-                color: AppColors.successGreen,
-                onTap: () => _goToItems(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: StatCard(
-                icon: Icons.warning_amber_rounded,
-                value: '${_recentAlerts.length}',
-                label: 'Alertes',
-                color: AppColors.errorRed,
-                onTap: () => _goToAlerts(context),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatCard(
-                icon: Icons.document_scanner_rounded,
-                value: '3',
-                label: 'Documents',
-                color: AppColors.warningYellow,
-                onTap: () => Navigator.pushNamed(context, AppRoutes.documents),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivities() {
+  // ============ SECURITY METRICS CARD (AMÉLIORÉ) ============
+  Widget _buildSecurityMetricsCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderDark),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,96 +564,506 @@ class _DashboardScreenState extends State<DashboardScreen>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  Icons.history_rounded,
-                  color: AppColors.secondary,
-                  size: 24,
+                child: const Icon(
+                  Icons.analytics_rounded,
+                  color: Colors.white,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Activités récentes',
-                style: AppTypography.titleMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 14),
+              const Text(
+                'Métriques de Sécurité',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          ..._recentActivities.map(
-            (activity) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ActivityCard(
-                icon: activity['icon'] as IconData,
-                title: activity['title'] as String,
-                description: activity['description'] as String,
-                time: activity['time'] as String,
-                color: activity['color'] as Color,
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricItem(
+                  Icons.calendar_today_rounded,
+                  'Jours\nProtégés',
+                  '$_protectedDays',
+                  const Color(0xFF10B981),
+                ),
               ),
-            ),
+              Container(width: 1, height: 60, color: Colors.grey[200]),
+              Expanded(
+                child: _buildMetricItem(
+                  Icons.speed_rounded,
+                  'Temps\nRéponse',
+                  '${_responseTime}s',
+                  const Color(0xFF6366F1),
+                ),
+              ),
+              Container(width: 1, height: 60, color: Colors.grey[200]),
+              Expanded(
+                child: _buildMetricItem(
+                  Icons.send_rounded,
+                  'Alertes\nEnvoyées',
+                  '$_totalAlertsSent',
+                  const Color(0xFF8B5CF6),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildMetricItem(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 26),
+        const SizedBox(height: 10),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // ============ LIVE MAP (INCHANGÉ) ============
+  Widget _buildLiveMap() {
+    return Container(
+      height: 260,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            if (_isLoadingLocation)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: Color(0xFF6366F1),
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Localisation GPS en cours...',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              )
+            else if (_currentPosition != null)
+              GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(
+                    _currentPosition!.latitude,
+                    _currentPosition!.longitude,
+                  ),
+                  zoom: 15.5,
+                ),
+                onMapCreated: (controller) => _mapController = controller,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                compassEnabled: false,
+                circles: _safetyCircles,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('current'),
+                    position: LatLng(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                    ),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueViolet,
+                    ),
+                    infoWindow: const InfoWindow(title: 'Ma position'),
+                  ),
+                },
+              )
+            else
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.location_off_rounded,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'GPS indisponible',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _getCurrentLocation,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Réessayer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 15,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: Color(0xFF10B981),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Zone de Sécurité Active',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Rayon 500m • Communauté 1km',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _getCurrentLocation,
+                      icon: const Icon(
+                        Icons.my_location_rounded,
+                        color: Color(0xFF6366F1),
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        border: Border.all(
+                          color: const Color(0xFF10B981),
+                          width: 2,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      'Sécurisé',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                        border: Border.all(color: const Color(0xFF6366F1)),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      'Communauté',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============ QUICK ACTIONS GRID (AMÉLIORÉ) ============
+  Widget _buildQuickActionsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Actions Rapides',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionItem(
+                Icons.shield_rounded,
+                'Protection',
+                [const Color(0xFF10B981), const Color(0xFF059669)],
+                () => Navigator.pushNamed(context, AppRoutes.settings),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickActionItem(
+                Icons.people_rounded,
+                'Contacts',
+                [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                () => Navigator.pushNamed(context, AppRoutes.contacts),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionItem(
+                Icons.inventory_2_rounded,
+                'Objets',
+                [const Color(0xFF8B5CF6), const Color(0xFFA855F7)],
+                () => Navigator.pushNamed(context, AppRoutes.items),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickActionItem(
+                Icons.description_rounded,
+                'Documents',
+                [const Color(0xFFF59E0B), const Color(0xFFD97706)],
+                () => Navigator.pushNamed(context, AppRoutes.documents),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionItem(
+    IconData icon,
+    String label,
+    List<Color> gradient,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradient),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: gradient[0].withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============ SECTION HEADER (AMÉLIORÉ) ============
   Widget _buildSectionHeader(
     String title,
     IconData icon,
-    Color color,
+    String subtitle,
     VoidCallback onTap,
   ) {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: color, size: 24),
+          child: Icon(icon, color: const Color(0xFF6366F1), size: 22),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTypography.titleMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Touchez pour voir tout',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
           ),
         ),
-        GestureDetector(
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 10),
+        InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: color,
-              size: 16,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'Voir tout',
+                  style: TextStyle(
+                    color: Color(0xFF6366F1),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 6),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Color(0xFF6366F1),
+                  size: 14,
+                ),
+              ],
             ),
           ),
         ),
@@ -625,288 +1071,279 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showMenuSheet(BuildContext context, AuthBloc authBloc) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: AppColors.borderDark),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 32, 20, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.borderDark,
-                borderRadius: BorderRadius.circular(2),
+  // ============ CONTACT CARD (AMÉLIORÉ) ============
+  Widget _buildPremiumContactCard(Contact contact) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: Text(
+                contact.name[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            const SizedBox(height: 32),
-
-            // En-tête du menu
-            Row(
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.menu_rounded,
-                    color: AppColors.primary,
-                    size: 28,
+                Text(
+                  contact.name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(height: 5),
                 Text(
-                  'Menu principal',
-                  style: AppTypography.titleLarge.copyWith(
+                  contact.phone,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.phone_rounded,
+              color: Color(0xFF10B981),
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============ SOS MULTI FAB (AMÉLIORÉ) ============
+  Widget _buildSOSMultiFAB() {
+    return Positioned(
+      bottom: 28,
+      right: 28,
+      child: GestureDetector(
+        onTap: () => _handleEmergency(context),
+        child: ScaleTransition(
+          scale: _pulseAnimation,
+          child: Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.emergency_rounded, color: Colors.white, size: 36),
+                SizedBox(height: 4),
+                Text(
+                  'SOS',
+                  style: TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 32),
-
-            // Options du menu
-            _buildMenuOption(
-              icon: Icons.person_rounded,
-              title: 'Mon profil',
-              subtitle: 'Gérer vos informations',
-              color: AppColors.primary,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.profile);
-              },
-            ),
-
-            _buildMenuOption(
-              icon: Icons.settings_rounded,
-              title: 'Paramètres',
-              subtitle: 'Personnaliser l\'application',
-              color: AppColors.secondary,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.settings);
-              },
-            ),
-
-            _buildMenuOption(
-              icon: Icons.help_rounded,
-              title: 'Centre d\'aide',
-              subtitle: 'FAQ et support',
-              color: AppColors.successGreen,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.helpCenter);
-              },
-            ),
-
-            _buildMenuOption(
-              icon: Icons.privacy_tip_rounded,
-              title: 'Confidentialité',
-              subtitle: 'Vos données sont protégées',
-              color: AppColors.warningYellow,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.privacy);
-              },
-            ),
-
-            const SizedBox(height: 24),
-            const Divider(color: AppColors.borderDark, height: 1),
-            const SizedBox(height: 24),
-
-            // Déconnexion
-            _buildMenuOption(
-              icon: Icons.logout_rounded,
-              title: 'Déconnexion',
-              subtitle: 'Se déconnecter du compte',
-              color: AppColors.errorRed,
-              isDanger: true,
-              onTap: () {
-                Navigator.pop(context);
-                _confirmLogout(context, authBloc);
-              },
-            ),
-
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-    bool isDanger = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isDanger
-              ? AppColors.errorRed.withOpacity(0.1)
-              : AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDanger
-                ? AppColors.errorRed.withOpacity(0.3)
-                : AppColors.borderDark,
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: isDanger ? AppColors.errorRed : Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: isDanger ? AppColors.errorRed : AppColors.textSecondary,
-              size: 16,
-            ),
-          ],
-        ),
       ),
     );
   }
 
+  // ============ EMERGENCY DIALOG (AMÉLIORÉ - suite dans le prochain message) ============
   void _handleEmergency(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: AppColors.borderDark),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.errorRed.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.errorRed.withOpacity(0.3),
-                    width: 2,
+              ScaleTransition(
+                scale: _pulseAnimation,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFEF4444).withValues(alpha: 0.2),
+                        const Color(0xFFDC2626).withValues(alpha: 0.1),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
                   ),
-                ),
-                child: ScaleTransition(
-                  scale: _pulseAnimation,
-                  child: Icon(
+                  child: const Icon(
                     Icons.emergency_rounded,
-                    color: AppColors.errorRed,
-                    size: 56,
+                    color: Color(0xFFEF4444),
+                    size: 60,
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
-              Text(
+              const SizedBox(height: 28),
+              const Text(
                 'ALERTE D\'URGENCE',
-                style: AppTypography.headlineSmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Text(
-                'Tous vos contacts d\'urgence recevront votre position et un signal de détresse.',
-                style: AppTypography.bodyLarge.copyWith(
-                  color: AppColors.textSecondary,
+                'Vos contacts de confiance recevront\nimmédiatement :',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey[600],
                   height: 1.5,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  children: [
+                    _buildEmergencyFeature(
+                      Icons.location_on_rounded,
+                      'Votre position GPS',
+                    ),
+                    const SizedBox(height: 10),
+                    _buildEmergencyFeature(Icons.sms_rounded, 'SMS d\'alerte'),
+                    const SizedBox(height: 10),
+                    _buildEmergencyFeature(
+                      Icons.notifications_active_rounded,
+                      'Notification push',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
+                        foregroundColor: Colors.grey[600],
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        side: BorderSide(color: AppColors.borderDark),
+                        side: BorderSide(color: Colors.grey[300]!, width: 2),
                       ),
                       child: const Text(
-                        'ANNULER',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                        'Annuler',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _sendEmergencyAlert(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.errorRed,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
                         ),
-                        elevation: 0,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFEF4444,
+                            ).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        'CONFIRMER',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _sendEmergencyAlert(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Envoyer SOS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -919,6 +1356,31 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildEmergencyFeature(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: const Color(0xFF10B981), size: 20),
+        ),
+        const SizedBox(width: 14),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============ SEND EMERGENCY ALERT ============
   void _sendEmergencyAlert(BuildContext context) {
     final emergencyBloc = BlocProvider.of<EmergencyBloc>(context);
     final authBloc = BlocProvider.of<AuthBloc>(context);
@@ -930,177 +1392,48 @@ class _DashboardScreenState extends State<DashboardScreen>
         EmergencyTriggered(
           userId: user.id,
           userName: user.fullName,
-          message: 'Alerte d\'urgence déclenchée manuellement',
+          message: 'Alerte d\'urgence déclenchée depuis le tableau de bord',
         ),
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Container(
-            padding: const EdgeInsets.all(12),
-            child: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Alerte envoyée à vos contacts d\'urgence',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Text(
+                  'Alerte envoyée avec succès',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
+            ],
           ),
-          backgroundColor: AppColors.successGreen,
+          backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          margin: const EdgeInsets.all(20),
+          margin: const EdgeInsets.all(18),
           duration: const Duration(seconds: 3),
         ),
       );
     }
   }
 
-  void _confirmLogout(BuildContext context, AuthBloc authBloc) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: AppColors.borderDark),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.errorRed.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.logout_rounded,
-                  color: AppColors.errorRed,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Déconnexion',
-                style: AppTypography.headlineSmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Êtes-vous sûr de vouloir vous déconnecter ?',
-                style: AppTypography.bodyLarge.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        side: BorderSide(color: AppColors.borderDark),
-                      ),
-                      child: const Text(
-                        'ANNULER',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        authBloc.add(AuthLogoutRequested());
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.errorRed,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'DÉCONNECTER',
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _goToAlerts(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.alertHistory);
-  }
-
-  void _scanQRCode(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const QRScannerScreen()),
-    );
-  }
-
-  void _pairDevice(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.pairDevice);
-  }
-
-  void _goToContacts(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.contacts);
-  }
-
-  void _goToItems(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.items);
-  }
-
-  void _toggleDiscreetMode(BuildContext context) {
-    final authBloc = BlocProvider.of<AuthBloc>(context, listen: false);
-    final state = authBloc.state;
-
-    if (state is AuthAuthenticated) {
-      final currentValue = state.user.settings.discreetMode;
-      authBloc.add(
-        AuthUpdateSettingsRequested({'discreetMode': !currentValue}),
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Mode discret ${!currentValue ? 'activé' : 'désactivé'}',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
+  // ============ LOAD DASHBOARD DATA ============
   Future<void> _loadDashboardData() async {
     final authBloc = BlocProvider.of<AuthBloc>(context, listen: false);
     final state = authBloc.state;
@@ -1118,16 +1451,435 @@ class _DashboardScreenState extends State<DashboardScreen>
             _recentAlerts = alerts;
             _contacts = contacts;
             _recentItems = items;
-            _isLoadingData = false;
+            _totalAlertsSent = alerts.length;
           });
         }
       } catch (e) {
         if (mounted) {
           setState(() {
-            _isLoadingData = false;
+            _recentAlerts = [];
+            _contacts = [];
+            _recentItems = [];
+            _totalAlertsSent = 0;
           });
         }
       }
     }
+  }
+
+  // ============ DRAWER (suite dans le prochain message si nécessaire) ============
+  Widget _buildEnhancedDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          children: [
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                if (state is AuthAuthenticated) {
+                  return Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF6366F1).withValues(alpha: 0.1),
+                          const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              state.user.firstName[0].toUpperCase() +
+                                  state.user.lastName[0].toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 34,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          '${state.user.firstName} ${state.user.lastName}',
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          state.user.email,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        InkWell(
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, AppRoutes.profile);
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  color: Color(0xFF6366F1),
+                                  size: 20,
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Voir mon profil',
+                                  style: TextStyle(
+                                    color: Color(0xFF6366F1),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                children: [
+                  _buildDrawerItem(
+                    icon: Icons.dashboard_rounded,
+                    title: 'Tableau de bord',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.people_rounded,
+                    title: 'Contacts de confiance',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.contacts);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.inventory_2_rounded,
+                    title: 'Objets protégés',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.items);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.description_rounded,
+                    title: 'Documents officiels',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.documents);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.history_rounded,
+                    title: 'Historique des alertes',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.alertHistory);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.watch_rounded,
+                    title: 'Gérer le bracelet',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.pairDevice);
+                    },
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Divider(height: 1),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.settings_rounded,
+                    title: 'Paramètres',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.settings);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.help_rounded,
+                    title: 'Centre d\'aide',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            _buildAuthButton(context),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Column(
+                children: [
+                  Text(
+                    'by SILENTOPS',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Version 1.0.0',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: isDestructive
+              ? const Color(0xFFEF4444).withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDestructive
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                    : const Color(0xFF6366F1).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: isDestructive
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF6366F1),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: isDestructive
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF1E293B),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAuthButton(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is AuthAuthenticated) {
+          return Padding(
+            padding: const EdgeInsets.all(18),
+            child: _buildDrawerItem(
+              icon: Icons.logout_rounded,
+              title: 'Déconnexion',
+              isDestructive: true,
+              onTap: () {
+                Navigator.pop(context);
+                _confirmLogout(context);
+              },
+            ),
+          );
+        }
+        return const SizedBox();
+      },
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    final authBloc = BlocProvider.of<AuthBloc>(context, listen: false);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 44,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Déconnexion',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Êtes-vous sûr de vouloir vous déconnecter ?',
+                style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        side: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      child: const Text(
+                        'Annuler',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        authBloc.add(AuthLogoutRequested());
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Déconnexion',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _scanQRCode(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+    );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
   }
 }
