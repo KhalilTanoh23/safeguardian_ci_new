@@ -69,3 +69,17 @@ curl https://your-app.up.railway.app/api/users
 1. Connecter le frontend Flutter à l'URL de l'API Railway
 2. Mettre à jour `CORS_ORIGINS` dans Railway si nécessaire
 3. Configurer les variables Firebase (si utilisé)
+
+**Déploiement Supabase**
+
+- Le schéma PostgreSQL est disponible dans `backend/database/schema_postgresql.sql`.
+- J'ai ajouté `DEPLOY_SUPABASE.md` avec les étapes d'import du schéma et des bonnes pratiques.
+- Un script d'exemple `scripts/deploy_supabase.sh` a été ajouté pour exécuter le SQL via `psql` (utilise `DATABASE_URL`).
+- Un fichier d'exemple `backend/.env.example` a été ajouté pour les variables d'environnement.
+
+**Scripts**
+
+- `scripts/deploy_railway.sh` : script d'aide utilisant la `railway` CLI si installée.
+- `scripts/deploy_supabase.sh` : importe le schéma vers la base indiquée par `DATABASE_URL`.
+
+Conseil rapide : ouvrez [DEPLOY_SUPABASE.md](DEPLOY_SUPABASE.md) pour les commandes et instructions détaillées.

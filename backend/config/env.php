@@ -16,17 +16,20 @@ class Config
      */
     public static function load($path = __DIR__ . '/../.env')
     {
-        if (!file_exists($path)) {
-            throw new Exception("Fichier .env non trouvé à: $path");
+        // Support pour variables d'env système (Railway)
+        if (function_exists('getenv')) {
+            foreach (['DATABASE_URL', 'JWT_SECRET', 'DB_DRIVER', 'CORS_ORIGINS', 'APP_ENV', 'APP_DEBUG'] as $key) {
+                if ($val = getenv($key)) {
+                    self::$env[$key] = $val;
+                }
+            }
         }
 
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
-        foreach ($lines as $line) {
-            // Ignorer les commentaires
-            if (strpos(trim($line), '#') === 0) {
-                continue;
+        if (!file_exists($path)) {
+            if (empty(self::$env)) {
+                throw new Exception("Fichier .env non trouvé à: $path");
             }
+            return;
 
             // Diviser la ligne par le signe égal
             if (strpos($line, '=') === false) {
