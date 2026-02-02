@@ -1,6 +1,6 @@
 [build]
-dockerfile = "backend/Dockerfile"
-context = "backend"
+builder = "dockerfile"
+dockerfile = "./backend/Dockerfile"
 
 [deploy]
 restartPolicyType = "on_failure"
